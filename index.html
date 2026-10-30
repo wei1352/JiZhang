@@ -1336,21 +1336,48 @@
   }
 
   function detectCols(header){
-    // 返回 {amount, type, date, note, incomeFlag} 列索引
-    var r = {amount:-1, type:-1, date:-1, note:-1, income:-1};
+    // 返回 {amount, type, date, note, cat, owner, incomeAmt, expenseAmt} 列索引
+    var r = {amount:-1, type:-1, date:-1, note:-1, cat:-1, owner:-1, income:-1};
     header.forEach(function(h, i){
       var s = String(h||"").replace(/^\uFEFF/,"").trim();
       var low = s.toLowerCase();
-      if(!r.amount && /金额|amount|money|价|金额\(元\)|交易金额|实收|支出金额|收入金额/.test(low) && /金额/.test(s) && r.amount===-1){
-        // 需区分收入/支出金额列
-        if(/收入/.test(s)){ r.incomeAmt = i; }
-        else if(/支出/.test(s)){ r.expenseAmt = i; }
-        else r.amount = i;
+
+      // ── 金额列 ──
+      if(r.amount === -1 && r.incomeAmt === undefined && r.expenseAmt === undefined && /金额|amount|money|价/.test(low)){
+        if(/收入金额|收入/.test(s)){
+          r.incomeAmt = i;
+        } else if(/支出金额|支出/.test(s)){
+          r.expenseAmt = i;
+        } else {
+          r.amount = i;
+        }
+        return;
       }
-      else if(/类型|收支|type|category|交易类型|收\/支/.test(low) && r.type===-1){ r.type = i; }
-      else if(/日期|时间|date|time|交易时间|交易日期|记账时间/.test(low) && r.date===-1){ r.date = i; }
-      else if(/备注|说明|note|商品|商户|描述|交易对方|摘要|desc|name/.test(low) && r.note===-1){ r.note = i; }
-      else if(/收\/支|收支|收入\/支出/.test(low) && r.type===-1){ r.type = i; }
+      // ── 归属列 ──
+      if(r.owner === -1 && /归属/.test(s)){
+        r.owner = i;
+        return;
+      }
+      // ── 分类列 ──
+      if(r.cat === -1 && /^分类$/.test(s)){
+        r.cat = i;
+        return;
+      }
+      // ── 类型列 ──
+      if(r.type === -1 && /类型|收支|收\/支|收入\/支出|type|category/.test(low)){
+        r.type = i;
+        return;
+      }
+      // ── 日期列 ──
+      if(r.date === -1 && /日期|时间|date|time/.test(low)){
+        r.date = i;
+        return;
+      }
+      // ── 备注列 ──
+      if(r.note === -1 && /备注|说明|商品|商户|描述|交易对方|摘要|desc|name|note/.test(low)){
+        r.note = i;
+        return;
+      }
     });
     return r;
   }
@@ -1550,17 +1577,24 @@
     }
 
     var cols = detectCols(header);
-    // 兜底：若没识别到金额列，尝试猜
+    // 兜底：若没识别到金额列，尝试猜（排除日期/时间列，避免把 "2026-10-29" 当成金额 2026）
     if(cols.amount===-1 && cols.incomeAmt===undefined && cols.expenseAmt===undefined){
-      // 找数值密集列
       var best=-1, bestCnt=0;
       for(var ci=0; ci<header.length; ci++){
-        var cnt=0;
+        if(ci === cols.date) continue;                       // 跳过日期列
+        if(ci === cols.type || ci === cols.note) continue;   // 跳过类型/备注列
+        var cnt=0, ok=0;
         for(var ri=headerIdx+1; ri<Math.min(rows.length, headerIdx+20); ri++){
-          var v = parseFloat(String(rows[ri][ci]||"").replace(/[¥￥, ]/g,""));
-          if(!isNaN(v)) cnt++;
+          var cellRaw = String(rows[ri][ci]||"").trim();
+          if(cellRaw === "") continue;
+          var v = parseFloat(cellRaw.replace(/[¥￥, ]/g,""));
+          if(!isNaN(v)){
+            cnt++;
+            // 长度合理的纯数字才算（排除 "2026-10-29 16:50:40" 这类）
+            if(/^[¥￥]?\s*-?\d+(\.\d+)?$/.test(cellRaw.replace(/,/g,""))) ok++;
+          }
         }
-        if(cnt>bestCnt){ bestCnt=cnt; best=ci; }
+        if(cnt>0 && ok===cnt && cnt>bestCnt){ bestCnt=cnt; best=ci; }
       }
       if(best>=0) cols.amount = best;
     }
@@ -1601,15 +1635,31 @@
       // 备注
       var note = cols.note>=0 ? String(r[cols.note]||"").trim() : "";
 
-      var key = date + "|" + amount + "|" + note;
+      // 分类（本应用导出的文件带「分类」列，按中文名还原）
+      var cat = null;
+      if(cols.cat >= 0){
+        var catName = String(r[cols.cat]||"").trim();
+        var found = EXP_CATS.concat(INC_CATS).find(function(c){ return c.name === catName; });
+        if(found) cat = found.id;
+      }
+      if(!cat) cat = guessCat(note);
+
+      // 归属（本应用导出的文件带「归属」列）
+      var owner = "me";
+      if(cols.owner >= 0){
+        var owName = String(r[cols.owner]||"").trim();
+        var fo = OWNERS.find(function(o){ return o.name === owName || o.id === owName; });
+        if(fo) owner = fo.id;
+      }
+
+      var key = date + "|" + amount + "|" + note + "|" + type;
       if(seen.has(key)){ skipped++; continue; }
       seen.add(key);
 
-      var cat = guessCat(note);
       state.list.push({
         id: Date.now() + Math.random().toString(36).slice(2,6),
         type: type, amount: amount, cat: cat, note: note, date: date,
-        owner: "me", source: "import"
+        owner: owner, source: "import"
       });
       added++;
     }
