@@ -46,8 +46,50 @@
   .sum-item{flex:1;background:var(--bg);border-radius:10px;padding:10px;text-align:center;}
   .sum-item .lbl{font-size:12px;color:var(--sub);}
   .sum-item .val{font-size:17px;font-weight:700;margin-top:2px;}
+  .tapable{cursor:pointer;transition:transform .12s,box-shadow .12s;position:relative;}
+  .tapable:active{transform:scale(.97);}
+  .tapable.on{box-shadow:0 0 0 2px var(--brand);background:#eef3ff;}
+  .tapable.on .lbl{color:var(--brand-d);font-weight:600;}
   .income .val{color:var(--green);}
   .expense .val{color:var(--red);}
+
+  /* 月份切换 */
+  .month-nav{display:flex;align-items:center;gap:8px;margin:6px 0 8px;}
+  .mnav{width:32px;height:32px;border-radius:9px;border:1px solid var(--line);background:var(--bg);
+    color:var(--ink);font-size:17px;line-height:1;cursor:pointer;flex-shrink:0;}
+  .mnav:active{background:#e6ebf5;}
+  .mnav-cur{flex:1;border:1px solid var(--line);background:var(--bg);border-radius:9px;
+    padding:7px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;}
+
+  /* 筛选工具条 */
+  .filter-tools{margin:0 0 10px;}
+  .ft-row{display:flex;gap:8px;margin-bottom:8px;}
+  .ft-search{flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+    font-size:14px;background:#fff;color:var(--ink);outline:none;font-family:inherit;}
+  .ft-search:focus{border-color:var(--brand);}
+  .ft-btn{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;
+    background:#fff;color:var(--ink);cursor:pointer;white-space:nowrap;flex-shrink:0;}
+  .ft-btn.on{background:var(--brand);color:#fff;border-color:var(--brand);}
+
+  /* 趋势图 */
+  .trend-wrap{display:flex;align-items:flex-end;gap:8px;height:120px;padding:8px 0 0;}
+  .trend-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+    height:100%;gap:3px;cursor:pointer;}
+  .trend-bars{display:flex;gap:3px;align-items:flex-end;height:88px;width:100%;justify-content:center;}
+  .trend-bar{width:9px;border-radius:3px 3px 0 0;min-height:2px;transition:opacity .15s;}
+  .trend-bar.inc{background:var(--green);}
+  .trend-bar.exp{background:var(--red);}
+  .trend-col.dim{opacity:.35;}
+  .trend-lbl{font-size:10px;color:var(--sub);white-space:nowrap;}
+  .trend-legend{display:flex;gap:14px;justify-content:center;font-size:11px;color:var(--sub);
+    margin-top:8px;padding-top:8px;border-top:1px solid var(--line);}
+  .trend-dot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;}
+
+  /* 重复记账建议 */
+  .repeat-chip{display:inline-flex;align-items:center;gap:4px;background:#f3f0ff;color:#7c5cf0;
+    border:1px solid #e2dbff;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;
+    margin:0 6px 6px 0;}
+  .repeat-chip:active{background:#e8e2ff;}
 
   /* 按钮 */
   .btn-row{display:flex;gap:10px;margin:4px 0 14px;}
@@ -174,17 +216,39 @@
       <span class="sum-month" id="sumMonth"></span>
       <span class="sum-balance" id="sumBalance"></span>
     </div>
+    <div class="month-nav">
+      <button class="mnav" id="btnPrevMonth" title="上一月">‹</button>
+      <button class="mnav-cur" id="btnPickMonth" title="选择月份">查看月份</button>
+      <button class="mnav" id="btnNextMonth" title="下一月">›</button>
+    </div>
     <div class="sum-num" id="sumNet"></div>
     <div class="sum-grid">
-      <div class="sum-item income"><div class="lbl">本月收入</div><div class="val" id="sumIncome">¥0</div></div>
-      <div class="sum-item expense"><div class="lbl">本月支出</div><div class="val" id="sumExpense">¥0</div></div>
+      <div class="sum-item income tapable" data-quick="income"><div class="lbl">收入 ↕</div><div class="val" id="sumIncome">¥0</div></div>
+      <div class="sum-item expense tapable" data-quick="expense"><div class="lbl">支出 ↕</div><div class="val" id="sumExpense">¥0</div></div>
     </div>
+    <div class="sum-grid" style="margin-top:8px;">
+      <div class="sum-item tapable" data-quick="me"><div class="lbl">👤 我自己花</div><div class="val" id="sumMe" style="font-size:15px;">¥0</div></div>
+      <div class="sum-item tapable" data-quick="share"><div class="lbl">👫 共同花</div><div class="val" id="sumShare" style="font-size:15px;">¥0</div></div>
+    </div>
+  </div>
+
+  <!-- 筛选工具条 -->
+  <div class="filter-tools">
+    <div class="ft-row">
+      <input type="search" id="searchInput" placeholder="🔍 搜索备注 / 商户名" class="ft-search">
+      <button class="ft-btn" id="btnRange">📅 时间段</button>
+    </div>
+    <div id="quickBanner"></div>
+    <div id="filterBanner"></div>
   </div>
 
   <div class="btn-row">
     <button class="btn btn-add" id="btnAdd">＋ 记一笔</button>
     <button class="btn btn-import" id="btnImport">📥 导入账单</button>
   </div>
+
+  <div class="section-title">📈 近 6 个月趋势</div>
+  <div class="cat-card" id="trendChart"></div>
 
   <div class="section-title">💰 总资产</div>
   <div class="asset-card" id="assetCard">
@@ -207,7 +271,6 @@
       <button id="btnManage" style="border:none;background:none;color:var(--brand);font-size:13px;cursor:pointer;padding:0;">管理</button>
     </span>
   </div>
-  <div id="filterBanner"></div>
   <div id="txnList"></div>
 </div>
 
@@ -216,6 +279,10 @@
   <div class="sheet">
     <button class="close-x" data-close>×</button>
     <h2>记一笔</h2>
+    <div id="repeatBox" style="display:none;margin-bottom:12px;">
+      <div style="font-size:12px;color:var(--sub);margin-bottom:6px;">常用（点一下自动填入）</div>
+      <div id="repeatChips"></div>
+    </div>
     <div class="field">
       <label>类型</label>
       <div class="seg" id="typeSeg">
@@ -232,12 +299,22 @@
       <div class="cats-grid" id="fCats"></div>
     </div>
     <div class="field">
+      <label>归属</label>
+      <div class="seg" id="ownerSeg">
+        <button class="on" data-owner="me">👤 我自己</button>
+        <button data-owner="share">👫 共同</button>
+      </div>
+    </div>
+    <div class="field">
       <label>备注（可选）</label>
       <input type="text" id="fNote" placeholder="例如：午饭、地铁">
     </div>
     <div class="field">
-      <label>日期</label>
-      <input type="date" id="fDate">
+      <label>日期时间</label>
+      <div style="display:flex;gap:8px;">
+        <input type="date" id="fDate" style="flex:1.4;">
+        <input type="time" id="fTime" step="1" style="flex:1;">
+      </div>
     </div>
     <button class="submit" id="btnSave">保存</button>
   </div>
@@ -282,6 +359,13 @@
       <div class="cats-grid" id="editCats"></div>
     </div>
     <div class="field">
+      <label>归属</label>
+      <div class="seg" id="editOwnerSeg">
+        <button data-eowner="me">👤 我自己</button>
+        <button data-eowner="share">👫 共同</button>
+      </div>
+    </div>
+    <div class="field">
       <label>备注</label>
       <input type="text" id="editNote" placeholder="备注">
     </div>
@@ -317,6 +401,34 @@
   <button class="mb-all" id="btnSelAll">全选</button>
   <button class="mb-del" id="btnDelSel">删除选中</button>
   <button class="mb-cancel" id="btnExitManage">退出</button>
+</div>
+
+<!-- 时间段筛选弹窗 -->
+<div class="mask" id="rangeMask">
+  <div class="sheet">
+    <button class="close-x" data-close>×</button>
+    <h2>按时间段筛选</h2>
+    <div style="font-size:13px;color:var(--sub);margin-bottom:14px;">
+      选择起止日期，跨月份查看流水。
+    </div>
+    <div class="field">
+      <label>开始日期</label>
+      <input type="date" id="rangeFromInput">
+    </div>
+    <div class="field">
+      <label>结束日期</label>
+      <input type="date" id="rangeToInput">
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;">
+      <button class="qt" data-rangequick="7">近 7 天</button>
+      <button class="qt" data-rangequick="30">近 30 天</button>
+      <button class="qt" data-rangequick="month">本月</button>
+      <button class="qt" data-rangequick="lastmonth">上月</button>
+      <button class="qt" data-rangequick="year">今年</button>
+      <button class="qt" data-rangequick="clear">清除</button>
+    </div>
+    <button class="submit" id="btnApplyRange">应用筛选</button>
+  </div>
 </div>
 
 <!-- 快速清除弹窗 -->
@@ -375,9 +487,26 @@
     {id:"other_in",name:"其他收入", icon:"💰", color:"#7c5cf0"}
   ];
 
+  // 归属：区分「我自己花的」和「与另一半一起花的」
+  var OWNERS = [
+    {id:"me",    name:"我自己",  icon:"👤", color:"#4f7cff"},
+    {id:"share", name:"共同",    icon:"👫", color:"#ec5f8b"}
+  ];
+  function ownerById(id){
+    return OWNERS.find(function(o){return o.id===id;}) || OWNERS[0];
+  }
+
   var state = { list: [], accounts: [], assets: {} };
   // accounts: [{id, name, icon, color}]
   // assets: { "2026-10": { "accountId": 1234.56, ... } }  按月存各账户余额
+
+  // 筛选状态
+  var filterCat = null;   // 分类筛选
+  var quickFilter = null; // 快捷筛选：income / expense / me / share
+  var viewMonth = "";     // 当前查看的月份 "YYYY-MM"，空则取当前月
+  var searchKw = "";      // 搜索关键词
+  var rangeFrom = "";     // 时间段筛选起
+  var rangeTo = "";       // 时间段筛选止
 
   // 默认账户
   var DEFAULT_ACCOUNTS = [
@@ -418,26 +547,146 @@
   }
 
   function monthKey(d){
-    var dt = new Date(d); return dt.getFullYear() + "-" + String(dt.getMonth()+1).padStart(2,"0");
+    // 兼容 "YYYY-MM-DD"、"YYYY-MM-DD HH:mm:ss"、Date 对象
+    var s = String(d||"");
+    var m = s.match(/^(\d{4})[-/](\d{1,2})/);
+    if(m) return m[1] + "-" + m[2].padStart(2,"0");
+    var dt = new Date(d);
+    if(isNaN(dt.getTime())) return "";
+    return dt.getFullYear() + "-" + String(dt.getMonth()+1).padStart(2,"0");
   }
-  function curMonthKey(){ return monthKey(new Date()); }
+  function curMonthKey(){
+    if(viewMonth) return viewMonth;
+    return monthKey(new Date());
+  }
+
+  // 月份切换
+  function shiftMonth(mk, delta){
+    var p = mk.split("-");
+    var y = parseInt(p[0],10), m = parseInt(p[1],10) + delta;
+    while(m <= 0){ m += 12; y--; }
+    while(m > 12){ m -= 12; y++; }
+    return y + "-" + String(m).padStart(2,"0");
+  }
+  function goMonth(delta){
+    viewMonth = shiftMonth(curMonthKey(), delta);
+    txnLimit = 100;
+    renderAll();
+  }
+  function pickMonth(){
+    // 列出有数据的月份 + 当前月
+    var months = {};
+    state.list.forEach(function(t){ var k = monthKey(t.date); if(k) months[k] = 1; });
+    var cur = monthKey(new Date());
+    months[cur] = 1;
+    var keys = Object.keys(months).sort().reverse();
+    var msg = "选择要查看的月份（输入数字序号）：\n\n";
+    keys.forEach(function(k, i){
+      var p = k.split("-");
+      var sum = 0;
+      state.list.forEach(function(t){
+        if(monthKey(t.date) === k){
+          if(t.type==="income") sum += t.amount; else sum -= t.amount;
+        }
+      });
+      msg += (i+1) + ". " + p[0] + "年" + parseInt(p[1],10) + "月" +
+             (k === cur ? "（本月）" : "") + "  结余 " + fmtMoney(sum) + "\n";
+    });
+    var input = prompt(msg, String(keys.indexOf(curMonthKey()) + 1));
+    if(!input) return;
+    var idx = parseInt(input, 10) - 1;
+    if(isNaN(idx) || idx < 0 || idx >= keys.length){ toast("序号无效"); return; }
+    viewMonth = keys[idx];
+    txnLimit = 100;
+    renderAll();
+  }
+
+  // 近 6 个月趋势
+  function renderTrend(){
+    var el = document.getElementById("trendChart");
+    if(!el) return;
+    if(state.list.length === 0){
+      el.innerHTML = '<div class="empty">还没有数据</div>';
+      return;
+    }
+    var cur = curMonthKey();
+    var months = [];
+    for(var i = 5; i >= 0; i--) months.push(shiftMonth(cur, -i));
+    var data = months.map(function(mk){
+      var inc = 0, exp = 0;
+      state.list.forEach(function(t){
+        if(monthKey(t.date) === mk){
+          if(t.type === "income") inc += t.amount; else exp += t.amount;
+        }
+      });
+      return {mk:mk, inc:inc, exp:exp};
+    });
+    var max = 0;
+    data.forEach(function(d){ max = Math.max(max, d.inc, d.exp); });
+    if(max === 0){
+      el.innerHTML = '<div class="empty">近 6 个月暂无收支记录</div>';
+      return;
+    }
+    var html = '<div class="trend-wrap">';
+    data.forEach(function(d){
+      var hInc = Math.round(d.inc / max * 88);
+      var hExp = Math.round(d.exp / max * 88);
+      var p = d.mk.split("-");
+      var lbl = parseInt(p[1],10) + "月";
+      var dim = (d.mk === cur) ? "" : " dim";
+      html += '<div class="trend-col'+dim+'" data-gomonth="'+d.mk+'">' +
+        '<div class="trend-bars">' +
+          '<div class="trend-bar inc" style="height:'+Math.max(hInc,2)+'px" title="收入 '+fmtMoney(d.inc)+'"></div>' +
+          '<div class="trend-bar exp" style="height:'+Math.max(hExp,2)+'px" title="支出 '+fmtMoney(d.exp)+'"></div>' +
+        '</div>' +
+        '<div class="trend-lbl">'+lbl+'</div></div>';
+    });
+    html += '</div>';
+    html += '<div class="trend-legend">' +
+      '<span><i class="trend-dot" style="background:var(--green)"></i>收入</span>' +
+      '<span><i class="trend-dot" style="background:var(--red)"></i>支出</span>' +
+      '<span style="color:#b0b6c2;">点柱子切换月份</span></div>';
+    el.innerHTML = html;
+  }
 
   function renderSummary(){
     var mk = curMonthKey();
-    var income=0, expense=0, balance=0;
+    var income=0, expense=0;
+    var meExp=0, shareExp=0;
     state.list.forEach(function(t){
       if(monthKey(t.date) === mk){
         if(t.type==="income") income += t.amount;
-        else expense += t.amount;
+        else {
+          expense += t.amount;
+          if((t.owner||"me") === "share") shareExp += t.amount;
+          else meExp += t.amount;
+        }
       }
-      if(t.type==="income") balance += t.amount; else balance -= t.amount;
     });
-    var now = new Date();
-    document.getElementById("sumMonth").textContent = now.getFullYear()+"年"+(now.getMonth()+1)+"月";
+    var balance = income - expense;
+
+    // 月份显示
+    var mkParts = mk.split("-");
+    var isCur = mk === monthKey(new Date());
+    document.getElementById("sumMonth").textContent =
+      mkParts[0] + "年" + parseInt(mkParts[1],10) + "月" + (isCur ? " · 本月" : "");
+    document.getElementById("sumBalance").textContent = "当月结余";
+
+    var btnPick = document.getElementById("btnPickMonth");
+    if(btnPick) btnPick.textContent = mkParts[0] + "年" + parseInt(mkParts[1],10) + "月" + (isCur ? "（本月）" : "");
+
     document.getElementById("sumIncome").textContent = fmtMoney(income);
     document.getElementById("sumExpense").textContent = fmtMoney(expense);
     document.getElementById("sumNet").textContent = fmtMoney(balance);
-    document.getElementById("sumBalance").textContent = "总余额";
+    var elMe = document.getElementById("sumMe");
+    var elShare = document.getElementById("sumShare");
+    if(elMe) elMe.textContent = fmtMoney(meExp);
+    if(elShare) elShare.textContent = fmtMoney(shareExp);
+
+    // 快捷筛选卡片选中态
+    document.querySelectorAll("[data-quick]").forEach(function(d){
+      d.classList.toggle("on", d.dataset.quick === quickFilter);
+    });
   }
 
   function renderCats(){
@@ -481,27 +730,57 @@
 
     // 筛选提示条
     if(banner){
-      if(filterCat){
-        var fc = catById(filterCat);
+      var labels = [];
+      if(quickFilter === "income") labels.push("💰 收入");
+      if(quickFilter === "expense") labels.push("💸 支出");
+      if(quickFilter === "me") labels.push("👤 我自己");
+      if(quickFilter === "share") labels.push("👫 共同");
+      if(filterCat){ var fc0 = catById(filterCat); labels.push(fc0.icon+" "+fc0.name); }
+      if((rangeFrom || rangeTo)){ labels.push("📅 "+(rangeFrom||"最早")+" ~ "+(rangeTo||"最新")); }
+      if(searchKw) labels.push("🔍 "+searchKw);
+      if(labels.length){
         banner.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;'+
           'background:#eef3ff;border-radius:10px;padding:9px 12px;margin-bottom:8px;">'+
-          '<span style="font-size:13px;color:var(--brand-d);">仅显示：'+fc.icon+' '+fc.name+'</span>'+
-          '<button id="btnClearFilter" style="border:none;background:none;color:var(--brand);font-size:13px;cursor:pointer;">显示全部</button>'+
+          '<span style="font-size:13px;color:var(--brand-d);">仅显示：'+labels.join(" + ")+'</span>'+
+          '<button id="btnClearFilter" style="border:none;background:none;color:var(--brand);font-size:13px;cursor:pointer;">清除筛选</button>'+
           '</div>';
       } else {
         banner.innerHTML = '';
       }
     }
 
+    var mk0 = curMonthKey();
+    var kw = searchKw.toLowerCase();
     var list = state.list.filter(function(t){
-      if(!filterCat) return true;
-      return t.cat === filterCat;
+      // 时间段筛选（优先，不受月份限制）
+      if(rangeFrom || rangeTo){
+        var d = dateOnly(t.date);
+        if(rangeFrom && d < rangeFrom) return false;
+        if(rangeTo && d > rangeTo) return false;
+      } else if(quickFilter || filterCat){
+        // 快捷/分类筛选限定在当月（或所选月份）
+        if(monthKey(t.date) !== mk0) return false;
+      }
+      // 快捷筛选
+      if(quickFilter === "income" && t.type !== "income") return false;
+      if(quickFilter === "expense" && t.type !== "expense") return false;
+      if(quickFilter === "me" && (t.type !== "expense" || (t.owner||"me") !== "me")) return false;
+      if(quickFilter === "share" && (t.type !== "expense" || (t.owner||"me") !== "share")) return false;
+      // 分类筛选
+      if(filterCat && t.cat !== filterCat) return false;
+      // 关键词搜索
+      if(kw){
+        var hay = ((t.note||"") + " " + catById(t.cat).name + " " + (t.source||"")).toLowerCase();
+        if(hay.indexOf(kw) < 0) return false;
+      }
+      return true;
     }).sort(function(a,b){
-      return new Date(b.date) - new Date(a.date) || (String(b.id) < String(a.id) ? -1 : 1);
+      // 精确到秒排序，同一时刻再按 id 倒序
+      return tsOf(b.date) - tsOf(a.date) || (String(b.id) < String(a.id) ? -1 : 1);
     });
 
     if(list.length === 0){
-      el.innerHTML = '<div class="empty">该分类下暂无记录</div>';
+      el.innerHTML = '<div class="empty">没有符合条件的记录</div>';
       return;
     }
 
@@ -516,11 +795,19 @@
       var checkHtml = manageMode
         ? '<div class="txn-check'+(isSel?' on':'')+'">'+(isSel?'✓':'')+'</div>'
         : '';
+      // 时间显示：日期 + 时间（有秒则显示到秒）
+      var tm = timeOnly(t.date);
+      var dtText = dateOnly(t.date) + (tm ? " " + tm : "");
+      // 归属标签
+      var own = ownerById(t.owner);
+      var ownTag = '<span style="display:inline-block;font-size:10px;padding:1px 5px;border-radius:4px;'+
+        'background:'+own.color+'22;color:'+own.color+';margin-left:5px;vertical-align:middle;">'+
+        own.icon+' '+own.name+'</span>';
       html += '<div class="txn'+(isSel?' sel':'')+'" data-edit="'+t.id+'">' +
         checkHtml +
         '<div class="cat-icon" style="background:'+c.color+'22">'+c.icon+'</div>' +
-        '<div class="txn-info"><div class="txn-name">'+(t.note||c.name)+'</div>' +
-        '<div class="txn-meta">'+c.name+' · '+t.date+
+        '<div class="txn-info"><div class="txn-name">'+(t.note||c.name)+ownTag+'</div>' +
+        '<div class="txn-meta">'+c.name+' · '+dtText+
           (t.source && t.source!=="manual" ? ' · '+t.source : '')+'</div></div>' +
         '<div class="txn-amt '+cls+'">'+sign+fmtMoney(t.amount)+'</div>' +
         (manageMode ? '' : '<button class="txn-del" data-del="'+t.id+'" title="删除">🗑</button>') +
@@ -664,8 +951,7 @@
   var editingId = null;
   var editType = "expense";
   var editCat = "other";
-  var filterCat = null;   // 当前流水列表的分类筛选
-
+  var editOwner = "me";
   function findTxn(id){
     return state.list.find(function(t){ return String(t.id) === String(id); });
   }
@@ -676,6 +962,7 @@
     editingId = t.id;
     editType = t.type;
     editCat = t.cat;
+    editOwner = t.owner || "me";
     document.getElementById("editSummary").innerHTML =
       '<div style="font-size:15px;font-weight:600;">'+(t.note || catById(t.cat).name)+'</div>' +
       '<div style="font-size:13px;color:var(--sub);margin-top:3px;">'+
@@ -691,6 +978,9 @@
     document.querySelectorAll("#editTypeSeg button").forEach(function(b){
       b.classList.toggle("on", b.dataset.etype === editType);
     });
+    document.querySelectorAll("#editOwnerSeg button").forEach(function(b){
+      b.classList.toggle("on", b.dataset.eowner === editOwner);
+    });
     var cats = editType === "expense" ? EXP_CATS : INC_CATS;
     // 若当前分类不在该类型的列表里，切到第一个
     if(!cats.some(function(c){return c.id===editCat;})) editCat = cats[0].id;
@@ -704,14 +994,15 @@
     if(!t){ return; }
     t.type = editType;
     t.cat = editCat;
+    t.owner = editOwner;
     t.note = document.getElementById("editNote").value.trim();
     save(); renderAll();
     document.getElementById("editMask").classList.remove("show");
-    toast("分类已更新 ✓");
+    toast("已更新 ✓");
     editingId = null;
   }
 
-  function renderAll(){ renderSummary(); renderCats(); renderTxns(); renderAssets(); }
+  function renderAll(){ renderSummary(); renderCats(); renderTxns(); renderAssets(); renderTrend(); }
 
   // 总资产模块
   function prevMonthKey(mk){
@@ -851,17 +1142,71 @@
   // 记一笔弹窗
   var curType = "expense";
   var curCat = "food";
+  var curOwner = "me";
   function openAdd(){
     setType("expense");
     setCat(curType==="expense" ? "food" : "salary");
+    setOwner("me");
     document.getElementById("fAmt").value = "";
     document.getElementById("fNote").value = "";
     document.getElementById("fDate").value = todayStr();
+    document.getElementById("fTime").value = nowTimeStr();
+    renderRepeatChips();
     document.getElementById("addMask").classList.add("show");
     setTimeout(function(){ document.getElementById("fAmt").focus(); }, 100);
   }
+
+  // 常用记录：从历史里取最常见的「备注+分类+金额」组合
+  function getRepeatTemplates(){
+    var map = {};
+    state.list.forEach(function(t){
+      if(!t.note) return;
+      var key = t.note + "|" + t.cat + "|" + t.owner;
+      if(!map[key]) map[key] = {note:t.note, cat:t.cat, owner:t.owner||"me",
+                                type:t.type, amount:t.amount, count:0, lastTs:0};
+      map[key].count++;
+      var ts = tsOf(t.date);
+      if(ts > map[key].lastTs){ map[key].lastTs = ts; map[key].amount = t.amount; }
+    });
+    return Object.keys(map).map(function(k){ return map[k]; })
+      .sort(function(a,b){ return b.count - a.count || b.lastTs - a.lastTs; })
+      .slice(0, 8);
+  }
+  function renderRepeatChips(){
+    var box = document.getElementById("repeatBox");
+    var wrap = document.getElementById("repeatChips");
+    if(!box || !wrap) return;
+    var tpls = getRepeatTemplates();
+    if(tpls.length === 0){ box.style.display = "none"; return; }
+    box.style.display = "block";
+    wrap.innerHTML = tpls.map(function(p, i){
+      var c = catById(p.cat);
+      return '<span class="repeat-chip" data-repeat="'+i+'">'+
+        c.icon+' '+p.note+' <b>¥'+p.amount+'</b>'+
+        '<span style="color:#b0b6c2;">('+p.count+')</span></span>';
+    }).join("");
+    // 存起来供点击使用
+    window.__repeatTpls = tpls;
+  }
+  function applyRepeat(idx){
+    var tpls = window.__repeatTpls || [];
+    var p = tpls[idx];
+    if(!p) return;
+    setType(p.type);
+    setCat(p.cat);
+    setOwner(p.owner);
+    document.getElementById("fAmt").value = p.amount;
+    document.getElementById("fNote").value = p.note;
+    document.getElementById("fDate").value = todayStr();
+    document.getElementById("fTime").value = nowTimeStr();
+    toast("已填入，可修改后保存");
+  }
   function todayStr(){
     var d = new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  }
+  function nowTimeStr(){
+    var d = new Date();
+    return String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0")+":"+String(d.getSeconds()).padStart(2,"0");
   }
   function setType(t){
     curType = t;
@@ -869,6 +1214,12 @@
       b.classList.toggle("on", b.dataset.type===t);
     });
     renderCatChips();
+  }
+  function setOwner(o){
+    curOwner = o;
+    document.querySelectorAll("#ownerSeg button").forEach(function(b){
+      b.classList.toggle("on", b.dataset.owner===o);
+    });
   }
   function setCat(c){ curCat = c; renderCatChips(); }
   function renderCatChips(){
@@ -882,11 +1233,15 @@
     var amt = parseFloat(document.getElementById("fAmt").value);
     if(!amt || amt <= 0){ toast("请输入有效金额"); return; }
     var note = document.getElementById("fNote").value.trim();
-    var date = document.getElementById("fDate").value || todayStr();
+    var d = document.getElementById("fDate").value || todayStr();
+    var tm = document.getElementById("fTime").value || "00:00:00";
+    if(/^\d{2}:\d{2}$/.test(tm)) tm += ":00";
+    var date = d + " " + tm;
     state.list.push({
       id: Date.now() + Math.random().toString(36).slice(2,6),
       type: curType, amount: Math.round(amt*100)/100,
       cat: curCat, note: note, date: date,
+      owner: curOwner,
       source: "manual"
     });
     save(); renderAll();
@@ -1157,7 +1512,8 @@
       }
       state.list.push({
         id: Date.now() + Math.random().toString(36).slice(2,6),
-        type: type, amount: amount, cat: cat, note: note, date: date, source: o.name
+        type: type, amount: amount, cat: cat, note: note, date: date,
+        owner: "me", source: o.name
       });
       added++;
     }
@@ -1251,7 +1607,8 @@
       var cat = guessCat(note);
       state.list.push({
         id: Date.now() + Math.random().toString(36).slice(2,6),
-        type: type, amount: amount, cat: cat, note: note, date: date, source: "import"
+        type: type, amount: amount, cat: cat, note: note, date: date,
+        owner: "me", source: "import"
       });
       added++;
     }
@@ -1260,25 +1617,74 @@
     return {ok:true, added:added, skipped:skipped};
   }
 
+  // 归一化日期时间，保留精确到秒：返回 "YYYY-MM-DD HH:mm:ss"（无时间则为 "YYYY-MM-DD"）
   function normalizeDate(s){
-    s = s.replace(/[年月]/g,"-").replace(/日/g,"").replace(/\s.*$/,"").trim();
-    var m = s.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-    if(m){ return m[1] + "-" + m[2].padStart(2,"0") + "-" + m[3].padStart(2,"0"); }
-    m = s.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);
-    if(m){
-      var y = m[3].length===2 ? "20"+m[3] : m[3];
-      return y + "-" + m[1].padStart(2,"0") + "-" + m[2].padStart(2,"0");
+    s = String(s||"").trim();
+    // 兜底：处理 Date.toString() 形式，如 "Thu Oct 29 2026 16:50:40 GMT+0800"
+    var en = s.match(/[A-Z][a-z]{2}\s+([A-Z][a-z]{2})\s+(\d{1,2})\s+(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})/);
+    if(en){
+      var MON = {Jan:"01",Feb:"02",Mar:"03",Apr:"04",May:"05",Jun:"06",Jul:"07",Aug:"08",Sep:"09",Oct:"10",Nov:"11",Dec:"12"};
+      var mmEn = MON[en[1]];
+      if(mmEn){
+        return en[3] + "-" + mmEn + "-" + en[2].padStart(2,"0") + " " +
+               String(en[4]).padStart(2,"0") + ":" + en[5] + ":" + en[6];
+      }
     }
-    return todayStr();
+    s = s.replace(/[年月]/g,"-").replace(/[日T]/g," ");
+    // 先抓日期
+    var d = null;
+    var m = s.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if(m){
+      d = m[1] + "-" + m[2].padStart(2,"0") + "-" + m[3].padStart(2,"0");
+    } else {
+      m = s.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);
+      if(m){
+        var y = m[3].length===2 ? "20"+m[3] : m[3];
+        d = y + "-" + m[1].padStart(2,"0") + "-" + m[2].padStart(2,"0");
+      }
+    }
+    if(!d) return todayStr();
+    // 再抓时间 HH:mm(:ss)
+    var t = s.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+    if(t){
+      var hh = String(t[1]).padStart(2,"0");
+      var mm = t[2];
+      var ss = t[3] !== undefined ? t[3] : "00";
+      return d + " " + hh + ":" + mm + ":" + ss;
+    }
+    return d;
+  }
+
+  // 从 date 字段取出纯日期部分
+  function dateOnly(v){
+    var s = String(v||"");
+    var m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : s;
+  }
+  // 从 date 字段取出时间部分（可能为空）
+  function timeOnly(v){
+    var s = String(v||"");
+    var m = s.match(/\s(\d{2}:\d{2}(?::\d{2})?)/);
+    return m ? m[1] : "";
+  }
+  // 排序用时间戳（支持 "YYYY-MM-DD HH:mm:ss" 与 "YYYY-MM-DD"）
+  function tsOf(v){
+    var s = String(v||"");
+    var t = s.indexOf(" ");
+    var iso = t >= 0 ? s.slice(0,t) + "T" + s.slice(t+1) : s + "T00:00:00";
+    var n = new Date(iso).getTime();
+    return isNaN(n) ? 0 : n;
   }
 
   // 导出
   function exportData(){
     if(state.list.length===0){ toast("暂无数据可导出"); return; }
-    var head = "日期,类型,金额,分类,备注,来源\n";
-    var body = state.list.map(function(t){
+    var head = "日期时间,类型,金额,分类,归属,备注,来源\n";
+    var body = state.list.slice().sort(function(a,b){ return tsOf(b.date)-tsOf(a.date); }).map(function(t){
       var c = catById(t.cat);
-      return [t.date, t.type==="income"?"收入":"支出", fmtMoneyNo(t.amount), c.name, (t.note||"").replace(/,/g," "), t.source].join(",");
+      var o = ownerById(t.owner);
+      return [t.date, t.type==="income"?"收入":"支出", fmtMoneyNo(t.amount), c.name,
+              o.name, (t.note||"").replace(/,/g," "), t.source].join(",");
     }).join("\n");
     var csv = "\uFEFF" + head + body;
     var blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
@@ -1319,6 +1725,18 @@
   document.getElementById("fCats").addEventListener("click", function(e){
     var s = e.target.closest(".cat-chip");
     if(s) setCat(s.dataset.cat);
+  });
+  document.getElementById("ownerSeg").addEventListener("click", function(e){
+    var b = e.target.closest("button[data-owner]");
+    if(b) setOwner(b.dataset.owner);
+  });
+  document.getElementById("repeatChips").addEventListener("click", function(e){
+    var c = e.target.closest("[data-repeat]");
+    if(c) applyRepeat(parseInt(c.dataset.repeat, 10));
+  });
+  document.getElementById("editOwnerSeg").addEventListener("click", function(e){
+    var b = e.target.closest("button[data-eowner]");
+    if(b){ editOwner = b.dataset.eowner; renderEditCats(); }
   });
   document.getElementById("btnSave").addEventListener("click", saveTxn);
 
@@ -1417,8 +1835,108 @@
   // 清除筛选
   document.getElementById("filterBanner").addEventListener("click", function(e){
     if(e.target.closest("#btnClearFilter")){
-      filterCat = null; renderCats(); renderTxns();
+      filterCat = null; quickFilter = null;
+      searchKw = ""; rangeFrom = ""; rangeTo = "";
+      var si = document.getElementById("searchInput");
+      if(si) si.value = "";
+      var rb = document.getElementById("btnRange");
+      if(rb) rb.classList.remove("on");
+      txnLimit = 100;
+      renderSummary(); renderCats(); renderTxns();
     }
+  });
+
+  // 顶部统计卡片 → 快捷筛选
+  document.querySelector(".summary").addEventListener("click", function(e){
+    var c = e.target.closest("[data-quick]");
+    if(!c) return;
+    var q = c.dataset.quick;
+    quickFilter = (quickFilter === q) ? null : q;   // 再点一次取消
+    rangeFrom = ""; rangeTo = "";                   // 快捷筛选与时间段互斥
+    var rb = document.getElementById("btnRange");
+    if(rb) rb.classList.remove("on");
+    txnLimit = 100;
+    renderSummary(); renderTxns();
+    if(quickFilter){
+      document.getElementById("txnList").scrollIntoView({behavior:"smooth", block:"start"});
+    }
+  });
+
+  // 月份切换
+  document.getElementById("btnPrevMonth").addEventListener("click", function(){ goMonth(-1); });
+  document.getElementById("btnNextMonth").addEventListener("click", function(){ goMonth(1); });
+  document.getElementById("btnPickMonth").addEventListener("click", pickMonth);
+  document.getElementById("btnPickMonth").textContent = "";
+
+  // 趋势图点击切换月份
+  document.getElementById("trendChart").addEventListener("click", function(e){
+    var col = e.target.closest("[data-gomonth]");
+    if(!col) return;
+    viewMonth = col.dataset.gomonth;
+    txnLimit = 100;
+    renderAll();
+    document.querySelector(".summary").scrollIntoView({behavior:"smooth", block:"start"});
+  });
+
+  // 搜索
+  var searchTimer = null;
+  document.getElementById("searchInput").addEventListener("input", function(){
+    var v = this.value.trim();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function(){
+      searchKw = v;
+      txnLimit = 100;
+      renderTxns();
+    }, 220);
+  });
+
+  // 时间段筛选
+  document.getElementById("btnRange").addEventListener("click", function(){
+    document.getElementById("rangeFromInput").value = rangeFrom;
+    document.getElementById("rangeToInput").value = rangeTo;
+    document.getElementById("rangeMask").classList.add("show");
+  });
+  document.getElementById("rangeMask").addEventListener("click", function(e){
+    var q = e.target.closest("[data-rangequick]");
+    if(!q) return;
+    var kind = q.dataset.rangequick;
+    var today = new Date();
+    function fmt(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+    var f = "", t = "";
+    if(kind === "clear"){ f = ""; t = ""; }
+    else if(kind === "month"){
+      f = curMonthKey() + "-01";
+      var p = curMonthKey().split("-");
+      t = fmt(new Date(parseInt(p[0],10), parseInt(p[1],10), 0));
+    }
+    else if(kind === "lastmonth"){
+      var lm = shiftMonth(curMonthKey(), -1);
+      var lp = lm.split("-");
+      f = lm + "-01";
+      t = fmt(new Date(parseInt(lp[0],10), parseInt(lp[1],10), 0));
+    }
+    else if(kind === "year"){
+      f = today.getFullYear() + "-01-01";
+      t = fmt(today);
+    }
+    else {
+      var n = parseInt(kind, 10);
+      var s = new Date(today.getTime() - (n-1)*86400000);
+      f = fmt(s); t = fmt(today);
+    }
+    document.getElementById("rangeFromInput").value = f;
+    document.getElementById("rangeToInput").value = t;
+  });
+  document.getElementById("btnApplyRange").addEventListener("click", function(){
+    rangeFrom = document.getElementById("rangeFromInput").value || "";
+    rangeTo = document.getElementById("rangeToInput").value || "";
+    quickFilter = null; filterCat = null;
+    txnLimit = 100;
+    var rb = document.getElementById("btnRange");
+    if(rb) rb.classList.toggle("on", !!(rangeFrom || rangeTo));
+    document.getElementById("rangeMask").classList.remove("show");
+    renderSummary(); renderTxns();
+    document.getElementById("txnList").scrollIntoView({behavior:"smooth", block:"start"});
   });
 
   document.querySelectorAll("[data-close]").forEach(function(x){
@@ -1461,7 +1979,14 @@
             return r.map(function(c){
               var s;
               if(c instanceof Date){
+                // 输出到秒，保留时间精度
+                var hasTime = (c.getHours()||c.getMinutes()||c.getSeconds());
                 s = c.getFullYear() + "-" + String(c.getMonth()+1).padStart(2,"0") + "-" + String(c.getDate()).padStart(2,"0");
+                if(hasTime){
+                  s += " " + String(c.getHours()).padStart(2,"0") + ":" +
+                       String(c.getMinutes()).padStart(2,"0") + ":" +
+                       String(c.getSeconds()).padStart(2,"0");
+                }
               } else if(c===null || c===undefined){
                 s = "";
               } else {
