@@ -57,6 +57,26 @@
   .btn-add:active{background:var(--brand-d);}
   .btn-import{background:#fff;color:var(--brand);border:1.5px solid var(--brand);}
 
+  /* 总资产 */
+  .asset-card{background:var(--card);border-radius:14px;padding:16px;margin:0 0 8px;
+    box-shadow:0 2px 12px rgba(30,40,80,.06);}
+  .asset-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
+  .asset-title{font-size:14px;font-weight:600;color:var(--ink);}
+  .asset-edit{font-size:12px;color:var(--brand);cursor:pointer;background:none;border:none;padding:0;}
+  .asset-total{font-size:30px;font-weight:800;color:var(--ink);}
+  .asset-change{font-size:13px;margin-top:4px;color:var(--sub);}
+  .asset-change.up{color:var(--green);}
+  .asset-change.down{color:var(--red);}
+  .asset-accounts{margin-top:12px;border-top:1px solid var(--line);}
+  .asset-account{display:flex;align-items:center;padding:11px 0;border-bottom:1px solid var(--line);}
+  .asset-account:last-child{border-bottom:none;}
+  .asset-acc-icon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;
+    justify-content:center;font-size:17px;margin-right:12px;flex-shrink:0;}
+  .asset-acc-name{flex:1;font-size:14px;font-weight:600;}
+  .asset-acc-val{font-weight:700;font-size:15px;}
+  .asset-acc-month{font-size:12px;color:var(--sub);margin-left:8px;}
+  .asset-del{border:none;background:none;color:#c0c6d0;font-size:16px;padding:2px 4px;cursor:pointer;}
+
   /* 分类统计 */
   .section-title{font-size:14px;color:var(--sub);margin:18px 2px 8px;font-weight:600;}
   .cat-card{background:var(--card);border-radius:14px;padding:6px 16px;
@@ -144,6 +164,17 @@
     <button class="btn btn-import" id="btnImport">📥 导入账单</button>
   </div>
 
+  <div class="section-title">💰 总资产</div>
+  <div class="asset-card" id="assetCard">
+    <div class="asset-head">
+      <span class="asset-title" id="assetMonthTitle">本月总资产</span>
+      <button class="asset-edit" id="btnAssetEdit">✏️ 记录余额</button>
+    </div>
+    <div class="asset-total" id="assetTotal">¥0</div>
+    <div class="asset-change" id="assetChange">暂无记录，点击右上角记录各账户余额</div>
+    <div class="asset-accounts" id="assetAccounts"></div>
+  </div>
+
   <div class="section-title">📊 分类统计（本月支出）</div>
   <div class="cat-card" id="catList"></div>
 
@@ -204,6 +235,27 @@
 
 <input type="file" id="exportHelper" style="display:none">
 
+<!-- 记录总资产弹窗 -->
+<div class="mask" id="assetMask">
+  <div class="sheet">
+    <button class="close-x" data-close>×</button>
+    <h2>记录总资产</h2>
+    <div style="font-size:13px;color:var(--sub);margin-bottom:12px;">
+      记录本月各账户的余额，自动汇总总资产，并对比上月变化。
+    </div>
+    <div class="field">
+      <label>月份</label>
+      <input type="month" id="assetMonth">
+    </div>
+    <div id="assetInputList"></div>
+    <div style="display:flex;align-items:center;gap:8px;margin:10px 0 14px;">
+      <input type="text" id="newAccName" placeholder="新账户名（如：招商银行卡）" style="flex:1;padding:10px;border:1.5px solid var(--line);border-radius:10px;font-size:14px;">
+      <button class="hbtn" id="btnAddAccount" style="background:var(--brand);color:#fff;border:none;padding:10px 14px;border-radius:10px;">添加</button>
+    </div>
+    <button class="submit" id="btnSaveAsset">保存总资产</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -231,13 +283,32 @@
     {id:"other_in",name:"其他收入", icon:"💰", color:"#7c5cf0"}
   ];
 
-  var state = { list: [] };
+  var state = { list: [], accounts: [], assets: {} };
+  // accounts: [{id, name, icon, color}]
+  // assets: { "2026-10": { "accountId": 1234.56, ... } }  按月存各账户余额
+
+  // 默认账户
+  var DEFAULT_ACCOUNTS = [
+    {id:"wechat",  name:"微信零钱",   icon:"💬", color:"#19c37d"},
+    {id:"alipay",  name:"支付宝",     icon:"🔵", color:"#4f7cff"},
+    {id:"bank",    name:"银行卡",     icon:"🏦", color:"#f5a623"},
+    {id:"cash",    name:"现金",       icon:"💵", color:"#7c5cf0"},
+    {id:"invest",  name:"理财/基金",  icon:"📈", color:"#ec5f8b"},
+    {id:"other_asset", name:"其他",   icon:"📦", color:"#9aa1ad"}
+  ];
 
   function load(){
     try{
       var raw = localStorage.getItem(STORE_KEY);
-      if(raw){ state = JSON.parse(raw); if(!state.list) state.list=[]; }
-    }catch(e){ state = {list:[]}; }
+      if(raw){
+        state = JSON.parse(raw);
+        if(!state.list) state.list=[];
+        if(!state.accounts || !state.accounts.length) state.accounts = DEFAULT_ACCOUNTS.slice();
+        if(!state.assets) state.assets = {};
+      } else {
+        state = {list:[], accounts: DEFAULT_ACCOUNTS.slice(), assets:{}};
+      }
+    }catch(e){ state = {list:[], accounts: DEFAULT_ACCOUNTS.slice(), assets:{}}; }
   }
   function save(){
     try{ localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
@@ -326,7 +397,142 @@
     el.innerHTML = html;
   }
 
-  function renderAll(){ renderSummary(); renderCats(); renderTxns(); }
+  function renderAll(){ renderSummary(); renderCats(); renderTxns(); renderAssets(); }
+
+  // 总资产模块
+  function prevMonthKey(mk){
+    var parts = mk.split("-");
+    var y = parseInt(parts[0],10), m = parseInt(parts[1],10);
+    m--; if(m===0){ m=12; y--; }
+    return y + "-" + String(m).padStart(2,"0");
+  }
+  function assetMonthLabel(mk){
+    var parts = mk.split("-");
+    return parts[0] + "年" + parseInt(parts[1],10) + "月";
+  }
+  function sumAssets(mk){
+    var rec = state.assets[mk];
+    if(!rec) return null;
+    var total = 0;
+    state.accounts.forEach(function(a){
+      if(rec[a.id]!==undefined && rec[a.id]!==null && rec[a.id]!==""){
+        total += Number(rec[a.id])||0;
+      }
+    });
+    return total;
+  }
+
+  function renderAssets(){
+    var mk = curMonthKey();
+    var elTotal = document.getElementById("assetTotal");
+    var elChange = document.getElementById("assetChange");
+    var elAccounts = document.getElementById("assetAccounts");
+    var elTitle = document.getElementById("assetMonthTitle");
+
+    elTitle.textContent = assetMonthLabel(mk) + " 总资产";
+
+    var cur = sumAssets(mk);
+    if(cur === null){
+      elTotal.textContent = "¥0";
+      elChange.textContent = "尚未记录，点击右上角「记录余额」";
+      elChange.className = "asset-change";
+      elAccounts.innerHTML = '<div class="empty" style="padding:16px 0;">暂无资产记录</div>';
+      return;
+    }
+
+    elTotal.textContent = fmtMoney(cur);
+
+    // 对比上月
+    var prev = sumAssets(prevMonthKey(mk));
+    if(prev === null || prev === 0){
+      elChange.textContent = "本月各账户余额已记录";
+      elChange.className = "asset-change";
+    } else {
+      var diff = cur - prev;
+      if(diff > 0){
+        elChange.textContent = "较上月 ↑ " + fmtMoney(Math.abs(diff));
+        elChange.className = "asset-change up";
+      } else if(diff < 0){
+        elChange.textContent = "较上月 ↓ " + fmtMoney(Math.abs(diff));
+        elChange.className = "asset-change down";
+      } else {
+        elChange.textContent = "与上月持平";
+        elChange.className = "asset-change";
+      }
+    }
+
+    // 各账户明细
+    var rec = state.assets[mk];
+    var html = "";
+    state.accounts.forEach(function(a){
+      var v = rec[a.id];
+      if(v===undefined || v===null || v==="") return;
+      html += '<div class="asset-account">' +
+        '<div class="asset-acc-icon" style="background:'+a.color+'22">'+a.icon+'</div>' +
+        '<div class="asset-acc-name">'+a.name+'</div>' +
+        '<div class="asset-acc-val">'+fmtMoney(Number(v)||0)+'</div></div>';
+    });
+    elAccounts.innerHTML = html || '<div class="empty" style="padding:16px 0;">本月各账户余额为空</div>';
+  }
+
+  // 打开记录余额弹窗
+  function openAsset(){
+    document.getElementById("assetMonth").value = curMonthKey();
+    renderAssetInputs();
+    document.getElementById("assetMask").classList.add("show");
+  }
+
+  function renderAssetInputs(){
+    var mk = document.getElementById("assetMonth").value || curMonthKey();
+    var rec = state.assets[mk] || {};
+    var el = document.getElementById("assetInputList");
+    var html = "";
+    state.accounts.forEach(function(a){
+      var v = rec[a.id]!==undefined && rec[a.id]!==null ? rec[a.id] : "";
+      html += '<div class="field" style="margin-bottom:10px;">' +
+        '<label>'+a.icon+' '+a.name+'</label>' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+        '<input type="number" class="acc-val" data-acc="'+a.id+'" inputmode="decimal" placeholder="0.00" step="0.01" value="'+v+'">' +
+        '<button class="asset-del" data-delacc="'+a.id+'" title="删除账户">🗑</button>' +
+        '</div></div>';
+    });
+    el.innerHTML = html || '<div class="empty">请先添加账户</div>';
+  }
+
+  function saveAsset(){
+    var mk = document.getElementById("assetMonth").value || curMonthKey();
+    var rec = state.assets[mk] || {};
+    document.querySelectorAll(".acc-val").forEach(function(inp){
+      var id = inp.dataset.acc;
+      var v = parseFloat(inp.value);
+      if(!isNaN(v)) rec[id] = Math.round(v*100)/100;
+      else if(inp.value === "") { delete rec[id]; }
+    });
+    state.assets[mk] = rec;
+    save(); renderAssets();
+    document.getElementById("assetMask").classList.remove("show");
+    toast("总资产已保存 ✓");
+  }
+
+  function addAccount(){
+    var name = document.getElementById("newAccName").value.trim();
+    if(!name){ toast("请输入账户名"); return; }
+    state.accounts.push({
+      id: "acc_" + Date.now().toString(36),
+      name: name, icon: "🏦", color: "#8a93a5"
+    });
+    document.getElementById("newAccName").value = "";
+    save(); renderAssetInputs();
+  }
+
+  function deleteAccount(id){
+    if(!confirm("删除这个账户？该账户在所有月份的历史余额也会被移除。")) return;
+    state.accounts = state.accounts.filter(function(a){ return a.id !== id; });
+    Object.keys(state.assets).forEach(function(mk){
+      if(state.assets[mk][id] !== undefined) delete state.assets[mk][id];
+    });
+    save(); renderAssetInputs(); renderAssets();
+  }
 
   // 记一笔弹窗
   var curType = "expense";
@@ -411,19 +617,34 @@
         date: h.indexOf("交易时间"),
         type: h.indexOf("收/支")>=0 ? h.indexOf("收/支") : -1,
         amount: h.indexOf("金额(元)"),
-        note: h.indexOf("交易对方")>=0 ? h.indexOf("交易对方") : h.indexOf("商品"),
+        note: h.indexOf("交易对方")>=0 ? h.indexOf("交易对方") : -1,
+        goods: h.indexOf("商品")>=0 ? h.indexOf("商品") : -1,
         // 交易类型可辅助判断收入（如"零钱提现""转账""红包"）
         typeName: h.indexOf("交易类型")
       };
     }
-    // 支付宝账单（导出为 CSV 常见列）：交易时间,交易分类,交易对方,对方账号,商品说明,收/支,金额,收/付款方式,交易状态,...
+    // 支付宝账单：交易时间,交易分类,交易对方,对方账号,商品说明,收/支,金额,收/付款方式,交易状态,...
+    if(h.indexOf("交易时间")>=0 && h.indexOf("收/支")>=0 && h.indexOf("金额")>=0 && h.indexOf("交易分类")>=0){
+      return {
+        name: "支付宝",
+        date: h.indexOf("交易时间"),
+        type: h.indexOf("收/支"),
+        amount: h.indexOf("金额"),
+        note: h.indexOf("商品说明")>=0 ? h.indexOf("商品说明") : (h.indexOf("交易对方")>=0?h.indexOf("交易对方"):-1),
+        counterparty: h.indexOf("交易对方")>=0 ? h.indexOf("交易对方") : -1,
+        category: h.indexOf("交易分类")>=0 ? h.indexOf("交易分类") : -1
+      };
+    }
+    // 支付宝账单（旧版，无交易分类列）
     if(h.indexOf("交易时间")>=0 && h.indexOf("收/支")>=0 && h.indexOf("金额")>=0){
       return {
         name: "支付宝",
         date: h.indexOf("交易时间"),
         type: h.indexOf("收/支"),
         amount: h.indexOf("金额"),
-        note: h.indexOf("商品说明")>=0 ? h.indexOf("商品说明") : (h.indexOf("交易对方")>=0?h.indexOf("交易对方"):-1)
+        note: h.indexOf("商品说明")>=0 ? h.indexOf("商品说明") : (h.indexOf("交易对方")>=0?h.indexOf("交易对方"):-1),
+        counterparty: h.indexOf("交易对方")>=0 ? h.indexOf("交易对方") : -1,
+        category: -1
       };
     }
     // 微信支付"账单下载"另一版：起始时间,交易类型,交易对方,商品,收/支,金额(元),...
@@ -433,7 +654,8 @@
         date: h.indexOf("交易时间")>=0 ? h.indexOf("交易时间") : -1,
         type: h.indexOf("收/支"),
         amount: h.indexOf("金额(元)"),
-        note: h.indexOf("交易对方")
+        note: h.indexOf("交易对方"),
+        goods: h.indexOf("商品")>=0 ? h.indexOf("商品") : -1
       };
     }
     return null;
@@ -459,18 +681,30 @@
     return r;
   }
 
-  function guessCat(note){
-    var s = String(note||"").toLowerCase();
+  function guessCat(text){
+    var s = String(text||"").toLowerCase();
+    // 规则按优先级排列，越具体越靠前
     var rules = [
-      [/餐|饭|食|外卖|美团|饿了么|肯德基|麦当劳|星巴克|咖啡|奶茶|零食|水果|买菜|超市|便利店|面|火锅|烧烤|餐厅|食堂/, "food"],
-      [/滴滴|打车|出租|地铁|公交|火车|高铁|飞机|机票|加油|停车|高速|etc|单车|骑行|出行/, "traffic"],
-      [/淘宝|京东|拼多多|天猫|购物|商城|买|订单|唯品会|抖音商城/, "shop"],
-      [/房租|水电|燃气|物业|宽带|话费|流量|家居|维修|保洁/, "home"],
-      [/电影|游戏|k歌|ktv|视频|会员|音乐|steam|剧本|密室|演出|门票|健身/, "fun"],
-      [/药|医院|诊所|体检|挂号|医疗/, "medical"],
-      [/书|课程|学费|培训|网课|考试|学习|教材/, "edu"],
-      [/酒店|民宿|旅行|景点|旅游|签证|度假/, "travel"],
-      [/缴费|账单|还款|信用卡|花呗|借呗|贷款|保险|充值/, "bill"]
+      // 交通出行
+      [/滴滴|顺风车|快车打车|特惠快车|打车|网约车|出租车|t3出行|曹操|花小猪|哈啰|青桔|共享单车|骑行|地铁|公交|高铁|火车|机票|航空|机场|加油|充电桩|单次充电|充电|etc|停车|高速/, "traffic"],
+      // 医疗健康
+      [/医院|诊所|药店|药房|体检|挂号|口腔|牙科|眼科|中医|门诊|买药|健康|保健|按摩|spa|足疗|理疗/, "medical"],
+      // 旅行住宿
+      [/宾馆|酒店|民宿|客栈|招待所|泸沽湖|香格里拉|丽江|大理|景区|景点|门票|旅游|度假|旅行社|青旅|滑雪|温泉|土特坊|土特产/, "travel"],
+      // 餐饮食品（含具体食物和餐饮平台）
+      [/美团|饿了么|肯德基|麦当劳|汉堡|披萨|星巴克|瑞幸|咖啡|奶茶|茶饮|蜜雪|喜茶|零食|外卖|餐厅|饭店|餐饮|小吃|包子|馒头|早餐|午餐|晚餐|火锅|烧烤|烤串|烤饵块|腊排骨|石锅|土鸡|鸡公煲|三出山|菌|面馆|米粉|米线|饺子|馄饨|食堂|快餐|超市|便利店|商行|食品|水果|买菜|菜场|果蔬|鲜花饼|蛋糕|面包|甜品|冰淇淋|夜宵|酒馆|酒吧|柠檬茶|饮料|ktv.*餐/, "food"],
+      // 购物消费
+      [/京东|淘宝|天猫|拼多多|小红书|唯品会|抖音商城|得物|闲鱼|购物|商城|订单|服装|衣|鞋|帽|包|迪卡侬|耐克|阿迪|优衣库|hm|zara|美宜佳|新佳宜|罗森|全家|7-11|seven|百货|饰品|美妆|化妆品|护肤|数码|电子|手机|电脑|家电|家具|家居|母婴|玩具|文具|图书|书店|鞋帽/, "shop"],
+      // 娱乐
+      [/电影|影院|游戏|steam|switch|ps4|ps5|xbox|视频|会员|爱奇艺|腾讯视频|优酷|b站|哔哩|音乐|网易云|qq音乐|ktv|剧本杀|密室|演出|演唱会|门票|健身|健身房|瑜伽|球馆|桌游|网吧|电竞|直播|打赏|开盖活动/, "fun"],
+      // 教育
+      [/课程|学费|培训|网课|考试|学习|教材|辅导|教育|学校|幼儿园|托班|兴趣班|家教|考研|考公|雅思|托福/, "edu"],
+      // 居家生活
+      [/房租|租金|水电|电费|水费|燃气|煤气|物业|宽带|话费|流量|充值|缴费|家居|维修|保洁|家政|快递|邮政|物流|物业费|暖气/, "home"],
+      // 账单还款
+      [/信用卡|还款|花呗|借呗|贷款|房贷|车贷|保险|账单|代扣|分期/, "bill"],
+      // 转账/红包（中性，归为其他）
+      [/转账|红包|二维码收款|收款方备注|群收款/, "other"]
     ];
     for(var i=0;i<rules.length;i++){
       if(rules[i][0].test(s)) return rules[i][1];
@@ -478,11 +712,49 @@
     return "other";
   }
 
-  function processOfficial(rows, o){
+  // 支付宝「交易分类」→ 本应用分类映射（支付宝给的分类很准，优先使用）
+  function alipayCatMap(cat){
+    var s = String(cat||"").trim();
+    var map = {
+      "交通出行": "traffic",
+      "餐饮美食": "food",
+      "日用百货": "shop",
+      "数码电器": "shop",
+      "美容美发": "shop",
+      "家居家装": "home",
+      "文化休闲": "fun",
+      "运动户外": "fun",
+      "教育培训": "edu",
+      "医疗健康": "medical",
+      "酒店旅游": "travel",
+      "航旅出行": "traffic",
+      "投资理财": "invest",
+      "转账红包": "other",
+      "充值缴费": "bill",
+      "其他": "other"
+    };
+    // 精确匹配
+    if(map[s]) return map[s];
+    // 模糊匹配
+    if(/交通|出行|地铁|公交|打车|火车|机票|加油|停车/.test(s)) return "traffic";
+    if(/餐饮|美食|外卖|食品|零食|水果/.test(s)) return "food";
+    if(/百货|数码|电器|美容|美发|服饰|服装|鞋|包|母婴|家居|家装|购物|日用/.test(s)) return "shop";
+    if(/文化|休闲|娱乐|电影|游戏|运动|户外|健身/.test(s)) return "fun";
+    if(/教育|培训|课程/.test(s)) return "edu";
+    if(/医疗|健康|药品/.test(s)) return "medical";
+    if(/酒店|旅游|旅行|住宿/.test(s)) return "travel";
+    if(/投资|理财|基金|股票|余额宝/.test(s)) return "invest";
+    if(/转账|红包/.test(s)) return "other";
+    if(/充值|缴费|话费|水电|燃气|还款/.test(s)) return "bill";
+    return "other";
+  }
+
+  function processOfficial(rows, o, headerIdx){
     var added = 0, skipped = 0, seen = new Set();
     state.list.forEach(function(t){ seen.add(t.date + "|" + t.amount + "|" + (t.note||"")); });
 
-    for(var i=1; i<rows.length; i++){
+    var start = (headerIdx!==undefined ? headerIdx : 0) + 1;
+    for(var i=start; i<rows.length; i++){
       var r = rows[i];
       if(!r.some(function(c){return String(c).trim()!=="";})) continue;
 
@@ -492,44 +764,73 @@
       if(isNaN(amount) || amount===0){ skipped++; continue; }
       amount = Math.abs(Math.round(amount*100)/100);
 
-      // 类型
+      // 支付宝「交易分类」列（最准确）
+      var alipayCat = "";
+      if(o.category>=0){
+        alipayCat = String(r[o.category]||"").trim();
+      }
+
+      // 类型（优先用"收/支"列，精确）
       var type = "expense";
       if(o.type>=0){
         var tv = String(r[o.type]||"").trim();
-        if(/收入|入账|收款|收/.test(tv) && !/支出/.test(tv)) type = "income";
-        else if(/支出|出账|付款|消费|支/.test(tv)) type = "expense";
-        else type = "expense";
+        if(tv === "收入" || /^收入/.test(tv)) type = "income";
+        else if(tv === "支出" || /^支出/.test(tv)) type = "expense";
+        else if(tv === "不计收支" || /不计收支/.test(tv)) type = "neutral";
       }
-
-      // 微信"交易类型"辅助判断收入（零钱提现/转账转入等）
+      // 微信"交易类型"辅助判断（退款→收入）
       if(o.typeName!==undefined && o.typeName>=0){
         var tn = String(r[o.typeName]||"");
-        if(/提现|转账.*入|红包.*入|退款|收入|转入|收款/.test(tn)) type = "income";
+        if(/退款|提现|转入|收款|收入/.test(tn)) type = "income";
+      }
+      // 支付宝退款→收入
+      if(alipayCat === "退款"){ type = "income"; }
+
+      // 支付宝「不计收支」处理：
+      // - 投资理财收益/退款 → 记入（income）
+      // - 其他不计收支（转账、余额宝转入转出、充值提现）→ 跳过不记（资产内部转移，非真实消费）
+      if(type === "neutral"){
+        if(/投资|理财|收益|退款|基金|余额宝.*收益/.test(alipayCat)){
+          type = "income";
+        } else {
+          skipped++; continue;  // 资产内部转移，不计入记账
+        }
       }
 
       // 日期
       var date = o.date>=0 ? String(r[o.date]||"").trim() : todayStr();
       date = normalizeDate(date);
 
-      // 备注：交易对方 + 商品
-      var note = o.note>=0 ? String(r[o.note]||"").trim() : "";
-      if(o.note>=0){
-        var noteParts = [String(r[o.note]||"").trim()];
-        // 微信商品列补充
-        if(o.name==="微信支付"){
-          var goodsIdx = rows[0].map(function(x){return String(x||"").trim();}).indexOf("商品");
-          if(goodsIdx>=0 && goodsIdx!==o.note && String(r[goodsIdx]||"").trim()){
-            noteParts.push(String(r[goodsIdx]).trim());
-          }
+      // 备注：交易对方 + 商品说明
+      var counterparty = "";
+      if(o.counterparty>=0) counterparty = String(r[o.counterparty]||"").trim();
+      var goods = o.note>=0 ? String(r[o.note]||"").trim() : "";
+      // 支付宝商品说明就是 note；微信用 note=交易对方, goods=商品
+      var note = "";
+      if(o.name === "支付宝"){
+        note = goods;  // 商品说明
+        if(counterparty && counterparty!=="/" && !/^[^\u4e00-\u9fa5]*$/.test(counterparty) && counterparty!==goods){
+          note = counterparty + " · " + goods;
         }
-        note = noteParts.filter(Boolean).join(" · ");
+      } else {
+        // 微信：note=交易对方 + 商品
+        note = counterparty;
+        if(goods && goods!=="/" && goods!==counterparty && !/^转账备注:微信转账$/.test(goods) && !/^收款方备注:/.test(goods)){
+          note = counterparty ? (counterparty + " · " + goods) : goods;
+        }
       }
 
       var key = date + "|" + amount + "|" + note;
       if(seen.has(key)){ skipped++; continue; }
       seen.add(key);
 
-      var cat = guessCat(note);
+      // 分类：支付宝优先用「交易分类」映射，微信用关键词
+      var cat;
+      if(o.name === "支付宝" && alipayCat){
+        cat = alipayCatMap(alipayCat);
+      } else {
+        cat = guessCat(counterparty + " " + goods);
+      }
       state.list.push({
         id: Date.now() + Math.random().toString(36).slice(2,6),
         type: type, amount: amount, cat: cat, note: note, date: date, source: o.name
@@ -544,11 +845,27 @@
   function processImport(text){
     var rows = parseCSV(text).filter(function(r){ return r.length>0 && r.some(function(c){return String(c).trim()!=="";}); });
     if(rows.length < 2){ return {ok:false, msg:"文件为空或格式无法识别"}; }
-    var header = rows[0];
-    var official = detectOfficialFormat(header);
 
+    // 自动定位表头行：微信账单前有多行标题说明，需找到含"交易时间/金额"的表头
+    var headerIdx = 0;
+    var official = null;
+    for(var hi=0; hi<Math.min(rows.length, 30); hi++){
+      var o2 = detectOfficialFormat(rows[hi]);
+      if(o2){ official = o2; headerIdx = hi; break; }
+    }
+    if(!official){
+      // 通用格式：表头通常在第 1 行，但也可前几行
+      for(var hi2=0; hi2<Math.min(rows.length, 10); hi2++){
+        var c2 = detectCols(rows[hi2]);
+        if(c2.amount>=0 || c2.incomeAmt!==undefined || c2.expenseAmt!==undefined || c2.date>=0){
+          headerIdx = hi2; break;
+        }
+      }
+    }
+
+    var header = rows[headerIdx];
     if(official){
-      return processOfficial(rows, official);
+      return processOfficial(rows, official, headerIdx);
     }
 
     var cols = detectCols(header);
@@ -558,7 +875,7 @@
       var best=-1, bestCnt=0;
       for(var ci=0; ci<header.length; ci++){
         var cnt=0;
-        for(var ri=1; ri<Math.min(rows.length,20); ri++){
+        for(var ri=headerIdx+1; ri<Math.min(rows.length, headerIdx+20); ri++){
           var v = parseFloat(String(rows[ri][ci]||"").replace(/[¥￥, ]/g,""));
           if(!isNaN(v)) cnt++;
         }
@@ -570,7 +887,7 @@
     var added = 0, skipped = 0, seen = new Set();
     state.list.forEach(function(t){ seen.add(t.date + "|" + t.amount + "|" + (t.note||"")); });
 
-    for(var i=1; i<rows.length; i++){
+    for(var i=headerIdx+1; i<rows.length; i++){
       var r = rows[i];
       if(!r.some(function(c){return String(c).trim()!=="";})) continue;
 
@@ -661,6 +978,16 @@
   document.getElementById("btnImport").addEventListener("click", openImport);
   document.getElementById("btnExport").addEventListener("click", exportData);
 
+  // 总资产
+  document.getElementById("btnAssetEdit").addEventListener("click", openAsset);
+  document.getElementById("btnSaveAsset").addEventListener("click", saveAsset);
+  document.getElementById("btnAddAccount").addEventListener("click", addAccount);
+  document.getElementById("assetMonth").addEventListener("change", renderAssetInputs);
+  document.getElementById("assetInputList").addEventListener("click", function(e){
+    var d = e.target.closest("[data-delacc]");
+    if(d) deleteAccount(d.dataset.delacc);
+  });
+
   document.getElementById("typeSeg").addEventListener("click", function(e){
     var b = e.target.closest("button[data-type]");
     if(b) setType(b.dataset.type);
@@ -740,10 +1067,21 @@
       return;
     }
 
-    // CSV 文件
+    // CSV 文件：先按 UTF-8 读，若出现乱码则用 GBK 重读（支付宝账单常为 GBK）
     var reader2 = new FileReader();
     reader2.onload = function(){
-      showResult(processImport(reader2.result));
+      var text = reader2.result;
+      // 检测乱码：GBK 中文按 UTF-8 读会产生 � 或大量不可打印字符
+      if(/[\uFFFD]/.test(text) || /锟斤拷|锟斤/.test(text)){
+        // 用 GBK 重新解码
+        var reader3 = new FileReader();
+        reader3.onload = function(){
+          showResult(processImport(reader3.result));
+        };
+        reader3.readAsText(f, "GBK");
+        return;
+      }
+      showResult(processImport(text));
     };
     reader2.readAsText(f, "UTF-8");
   });
