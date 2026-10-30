@@ -1,10 +1,11 @@
 // 记账本 Service Worker：离线缓存
-var CACHE_NAME = "jizhangben-v1";
+var CACHE_NAME = "jizhangben-v2";
 var ASSETS = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./icon.png"
+  "./icon.png",
+  "./xlsx.full.min.js"
 ];
 
 self.addEventListener("install", function(e){

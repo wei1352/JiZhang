@@ -11,6 +11,7 @@
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="icon" href="icon.png" type="image/png">
 <title>记账本 · 随手记</title>
+<script src="xlsx.full.min.js"></script>
 <style>
   :root{
     --bg:#f4f5f7; --card:#fff; --ink:#1f2430; --sub:#8a93a5;
@@ -186,13 +187,13 @@
 <div class="mask" id="importMask">
   <div class="sheet">
     <button class="close-x" data-close>×</button>
-    <h2>导入账单 CSV</h2>
+    <h2>导入账单</h2>
     <div style="font-size:13px;color:var(--sub);margin-bottom:12px;">
-      支持微信支付、支付宝、银行账单导出的 CSV 文件。选择文件后会自动识别「金额、类型、时间、备注」列并智能分类。也可先下载
+      支持微信支付、支付宝、银行导出的 <b>CSV</b> 或 <b>Excel（.xlsx）</b> 账单文件。选择文件后会自动识别「金额、类型、时间、备注」列并智能分类。也可先下载
       <a href="#" id="tplLink" style="color:var(--brand);">模板</a> 按格式填写。
     </div>
     <div class="field">
-      <input type="file" id="csvFile" accept=".csv,.txt" style="padding:10px;">
+      <input type="file" id="csvFile" accept=".csv,.txt,.xlsx,.xls" style="padding:10px;">
     </div>
     <div id="importResult" style="font-size:13px;color:var(--sub);"></div>
     <div style="font-size:12px;color:#b0b6c2;margin-top:8px;">
@@ -690,10 +691,10 @@
   document.getElementById("csvFile").addEventListener("change", function(e){
     var f = e.target.files[0];
     if(!f) return;
-    var reader = new FileReader();
-    reader.onload = function(){
-      var res = processImport(reader.result);
-      var el = document.getElementById("importResult");
+    var el = document.getElementById("importResult");
+    var name = f.name.toLowerCase();
+
+    var showResult = function(res){
       if(res.ok){
         el.innerHTML = '✅ 成功导入 <b>'+res.added+'</b> 条' +
           (res.format ? '（识别为 <b>'+res.format+'</b> 账单）' : '') +
@@ -702,7 +703,49 @@
         el.innerHTML = '❌ ' + res.msg;
       }
     };
-    reader.readAsText(f, "UTF-8");
+
+    // Excel 文件：用 SheetJS 解析
+    if(/\.xlsx?$/.test(name)){
+      if(typeof XLSX === "undefined"){
+        el.innerHTML = '❌ Excel 解析库未加载，请联网后重试（或手动转成 CSV 再导入）。';
+        return;
+      }
+      var reader = new FileReader();
+      reader.onload = function(){
+        try{
+          var wb = XLSX.read(reader.result, {type:"array", cellDates:true});
+          var ws = wb.Sheets[wb.SheetNames[0]];
+          var rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:"", raw:true});
+          // 转成 CSV 文本交给 processImport（复用现有列名识别逻辑）
+          var csv = rows.map(function(r){
+            return r.map(function(c){
+              var s;
+              if(c instanceof Date){
+                s = c.getFullYear() + "-" + String(c.getMonth()+1).padStart(2,"0") + "-" + String(c.getDate()).padStart(2,"0");
+              } else if(c===null || c===undefined){
+                s = "";
+              } else {
+                s = String(c);
+              }
+              if(/[",\n\r]/.test(s)){ s = '"' + s.replace(/"/g,'""') + '"'; }
+              return s;
+            }).join(",");
+          }).join("\n");
+          showResult(processImport(csv));
+        }catch(err){
+          el.innerHTML = '❌ 解析 Excel 失败：' + err.message;
+        }
+      };
+      reader.readAsArrayBuffer(f);
+      return;
+    }
+
+    // CSV 文件
+    var reader2 = new FileReader();
+    reader2.onload = function(){
+      showResult(processImport(reader2.result));
+    };
+    reader2.readAsText(f, "UTF-8");
   });
 
   document.getElementById("tplLink").addEventListener("click", function(e){
