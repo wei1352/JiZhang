@@ -94,7 +94,10 @@
 
   /* 流水列表 */
   .txn{background:var(--card);border-radius:14px;padding:13px 16px;margin-bottom:8px;
-    display:flex;align-items:center;box-shadow:0 2px 10px rgba(30,40,80,.05);}
+    display:flex;align-items:center;box-shadow:0 2px 10px rgba(30,40,80,.05);
+    cursor:pointer;transition:transform .12s,box-shadow .12s;}
+  .txn:active{transform:scale(.985);box-shadow:0 1px 4px rgba(30,40,80,.1);}
+  .txn-edit-hint{font-size:11px;color:#c8cdd6;margin-left:4px;}
   .txn .cat-icon{margin-right:12px;}
   .txn-info{flex:1;min-width:0;}
   .txn-name{font-size:15px;font-weight:600;}
@@ -104,6 +107,25 @@
   .txn-amt.inc{color:var(--green);}
   .txn-del{border:none;background:none;color:#c0c6d0;font-size:18px;padding:4px 6px;
     cursor:pointer;margin-left:6px;}
+
+  /* 批量管理模式 */
+  .txn.sel{box-shadow:0 0 0 2px var(--brand) inset;background:#f6f9ff;}
+  .txn-check{width:22px;height:22px;border:2px solid #c8cdd6;border-radius:6px;
+    margin-right:11px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+    font-size:14px;color:#fff;background:#fff;}
+  .txn-check.on{background:var(--brand);border-color:var(--brand);}
+  .manage-bar{position:fixed;left:0;right:0;bottom:0;background:#fff;z-index:60;
+    padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:flex;gap:9px;
+    box-shadow:0 -3px 14px rgba(20,30,60,.13);}
+  .manage-bar button{flex:1;border:none;border-radius:10px;padding:12px;font-size:14px;
+    font-weight:700;cursor:pointer;}
+  .mb-all{background:var(--bg);color:var(--ink);}
+  .mb-del{background:var(--red);color:#fff;}
+  .mb-cancel{background:var(--bg);color:var(--sub);}
+  .quick-tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+  .qt{border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:8px 12px;
+    font-size:13px;color:var(--ink);cursor:pointer;}
+  .qt.danger{border-color:#ffd6da;color:var(--red);background:#fff7f8;}
 
   /* 弹窗 */
   .mask{position:fixed;inset:0;background:rgba(20,24,35,.5);z-index:50;display:none;
@@ -178,7 +200,14 @@
   <div class="section-title">📊 分类统计（本月支出）</div>
   <div class="cat-card" id="catList"></div>
 
-  <div class="section-title">📝 最近流水</div>
+  <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;">
+    <span>📝 最近流水 <span style="font-size:12px;font-weight:400;color:#b0b6c2;">（点记录可改分类）</span></span>
+    <span style="display:flex;gap:10px;">
+      <button id="btnQuickClear" style="border:none;background:none;color:var(--red);font-size:13px;cursor:pointer;padding:0;">清除</button>
+      <button id="btnManage" style="border:none;background:none;color:var(--brand);font-size:13px;cursor:pointer;padding:0;">管理</button>
+    </span>
+  </div>
+  <div id="filterBanner"></div>
   <div id="txnList"></div>
 </div>
 
@@ -235,6 +264,31 @@
 
 <input type="file" id="exportHelper" style="display:none">
 
+<!-- 调整分类弹窗 -->
+<div class="mask" id="editMask">
+  <div class="sheet">
+    <button class="close-x" data-close>×</button>
+    <h2>调整分类</h2>
+    <div id="editSummary" style="background:var(--bg);border-radius:10px;padding:12px;margin-bottom:14px;"></div>
+    <div class="field">
+      <label>类型</label>
+      <div class="seg" id="editTypeSeg">
+        <button class="on exp" data-etype="expense">支出</button>
+        <button class="inc" data-etype="income">收入</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>分类</label>
+      <div class="cats-grid" id="editCats"></div>
+    </div>
+    <div class="field">
+      <label>备注</label>
+      <input type="text" id="editNote" placeholder="备注">
+    </div>
+    <button class="submit" id="btnSaveEdit">保存修改</button>
+  </div>
+</div>
+
 <!-- 记录总资产弹窗 -->
 <div class="mask" id="assetMask">
   <div class="sheet">
@@ -257,6 +311,44 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- 批量管理操作条 -->
+<div class="manage-bar hidden" id="manageBar">
+  <button class="mb-all" id="btnSelAll">全选</button>
+  <button class="mb-del" id="btnDelSel">删除选中</button>
+  <button class="mb-cancel" id="btnExitManage">退出</button>
+</div>
+
+<!-- 快速清除弹窗 -->
+<div class="mask" id="clearMask">
+  <div class="sheet">
+    <button class="close-x" data-close>×</button>
+    <h2>快速清除流水</h2>
+    <div style="font-size:13px;color:var(--sub);margin-bottom:14px;">
+      当前共 <b id="clearTotal">0</b> 条流水。选择下面任一方式批量清除，操作不可撤销，建议先「导出数据」备份。
+    </div>
+
+    <div class="field">
+      <label>按分类清除</label>
+      <div class="cats-grid" id="clearCatChips"></div>
+    </div>
+
+    <div class="field">
+      <label>按月份清除</label>
+      <select id="clearMonth"></select>
+    </div>
+
+    <div class="field">
+      <label>按来源清除</label>
+      <select id="clearSource"></select>
+    </div>
+
+    <div class="quick-tools">
+      <button class="qt danger" id="qtAllOther">清除全部「其他」类</button>
+      <button class="qt danger" id="qtAll">清空全部流水</button>
+    </div>
+  </div>
+</div>
 
 <script>
 (function(){
@@ -366,7 +458,8 @@
     entries.forEach(function(e){
       var c = catById(e.cat);
       var pct = Math.round(e.amt/total*100);
-      html += '<div class="cat-row">' +
+      var on = (filterCat === e.cat) ? " style=\"background:#f0f4ff;\"" : "";
+      html += '<div class="cat-row" data-filtercat="'+e.cat+'"'+on+'>' +
         '<div class="cat-icon" style="background:'+c.color+'22">'+c.icon+'</div>' +
         '<div class="cat-info"><div class="cat-name">'+c.name+'</div>' +
         '<div class="cat-bar"><i style="width:'+pct+'%;background:'+c.color+'"></i></div>' +
@@ -378,23 +471,244 @@
 
   function renderTxns(){
     var el = document.getElementById("txnList");
-    if(state.list.length === 0){ el.innerHTML = '<div class="empty">还没有记录，点击上方「记一笔」开始吧</div>'; return; }
-    var list = state.list.slice().sort(function(a,b){
-      return new Date(b.date) - new Date(a.date) || b.id - a.id;
-    }).slice(0, 50);
+    var banner = document.getElementById("filterBanner");
+
+    if(state.list.length === 0){
+      if(banner) banner.innerHTML = "";
+      el.innerHTML = '<div class="empty">还没有记录，点击上方「记一笔」开始吧</div>';
+      return;
+    }
+
+    // 筛选提示条
+    if(banner){
+      if(filterCat){
+        var fc = catById(filterCat);
+        banner.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;'+
+          'background:#eef3ff;border-radius:10px;padding:9px 12px;margin-bottom:8px;">'+
+          '<span style="font-size:13px;color:var(--brand-d);">仅显示：'+fc.icon+' '+fc.name+'</span>'+
+          '<button id="btnClearFilter" style="border:none;background:none;color:var(--brand);font-size:13px;cursor:pointer;">显示全部</button>'+
+          '</div>';
+      } else {
+        banner.innerHTML = '';
+      }
+    }
+
+    var list = state.list.filter(function(t){
+      if(!filterCat) return true;
+      return t.cat === filterCat;
+    }).sort(function(a,b){
+      return new Date(b.date) - new Date(a.date) || (String(b.id) < String(a.id) ? -1 : 1);
+    });
+
+    if(list.length === 0){
+      el.innerHTML = '<div class="empty">该分类下暂无记录</div>';
+      return;
+    }
+
+    var totalShown = list.length;
+    var shown = list.slice(0, txnLimit);
     var html = "";
-    list.forEach(function(t){
+    shown.forEach(function(t){
       var c = catById(t.cat);
       var cls = t.type==="income" ? "inc" : "exp";
       var sign = t.type==="income" ? "+" : "-";
-      html += '<div class="txn">' +
+      var isSel = selectedIds.indexOf(String(t.id)) >= 0;
+      var checkHtml = manageMode
+        ? '<div class="txn-check'+(isSel?' on':'')+'">'+(isSel?'✓':'')+'</div>'
+        : '';
+      html += '<div class="txn'+(isSel?' sel':'')+'" data-edit="'+t.id+'">' +
+        checkHtml +
         '<div class="cat-icon" style="background:'+c.color+'22">'+c.icon+'</div>' +
         '<div class="txn-info"><div class="txn-name">'+(t.note||c.name)+'</div>' +
-        '<div class="txn-meta">'+c.name+' · '+t.date+'</div></div>' +
+        '<div class="txn-meta">'+c.name+' · '+t.date+
+          (t.source && t.source!=="manual" ? ' · '+t.source : '')+'</div></div>' +
         '<div class="txn-amt '+cls+'">'+sign+fmtMoney(t.amount)+'</div>' +
-        '<button class="txn-del" data-del="'+t.id+'" title="删除">🗑</button></div>';
+        (manageMode ? '' : '<button class="txn-del" data-del="'+t.id+'" title="删除">🗑</button>') +
+        '</div>';
     });
+
+    // 底部：计数 + 加载更多
+    html += '<div style="text-align:center;padding:12px 0 6px;font-size:12px;color:var(--sub);">'+
+      '已显示 '+shown.length+' / 共 '+totalShown+' 条</div>';
+    if(shown.length < totalShown){
+      html += '<button id="btnLoadMore" style="width:100%;padding:13px;border:1.5px solid var(--line);'+
+        'background:#fff;border-radius:12px;font-size:14px;font-weight:600;color:var(--brand);cursor:pointer;margin-bottom:6px;">'+
+        '加载更多（还有 '+(totalShown - shown.length)+' 条）</button>';
+    }
     el.innerHTML = html;
+  }
+
+  // ===== 批量管理 =====
+  var manageMode = false;
+  var selectedIds = [];
+  var txnLimit = 100;     // 当前显示的流水条数上限（逐步加载）
+
+  function enterManage(){
+    manageMode = true;
+    selectedIds = [];
+    txnLimit = 10000;   // 管理模式显示全部，方便全选
+    document.getElementById("manageBar").classList.remove("hidden");
+    document.getElementById("btnManage").textContent = "完成";
+    renderTxns();
+    updateManageBar();
+  }
+  function exitManage(){
+    manageMode = false;
+    selectedIds = [];
+    txnLimit = 100;
+    document.getElementById("manageBar").classList.add("hidden");
+    document.getElementById("btnManage").textContent = "管理";
+    renderTxns();
+  }
+  function toggleSelect(id){
+    id = String(id);
+    var i = selectedIds.indexOf(id);
+    if(i >= 0) selectedIds.splice(i, 1);
+    else selectedIds.push(id);
+    renderTxns();
+    updateManageBar();
+  }
+  function selectAllVisible(){
+    // 取当前可见列表（受筛选影响）
+    var visible = state.list.filter(function(t){
+      return !filterCat || t.cat === filterCat;
+    });
+    if(selectedIds.length === visible.length && visible.length > 0){
+      selectedIds = [];   // 已全选则取消
+    } else {
+      selectedIds = visible.map(function(t){ return String(t.id); });
+    }
+    renderTxns();
+    updateManageBar();
+  }
+
+  function updateManageBar(){
+    var btn = document.getElementById("btnDelSel");
+    if(btn){
+      btn.textContent = selectedIds.length > 0
+        ? "删除选中 (" + selectedIds.length + ")"
+        : "删除选中";
+    }
+    var all = document.getElementById("btnSelAll");
+    var visible = state.list.filter(function(t){ return !filterCat || t.cat === filterCat; });
+    if(all){
+      all.textContent = (visible.length > 0 && selectedIds.length === visible.length)
+        ? "取消全选" : "全选";
+    }
+  }
+
+  function deleteSelected(){
+    if(selectedIds.length === 0){ toast("请先选择要删除的记录"); return; }
+    if(!confirm("确定删除选中的 " + selectedIds.length + " 条记录？此操作不可撤销。")) return;
+    var delSet = {};
+    selectedIds.forEach(function(id){ delSet[id] = true; });
+    var before = state.list.length;
+    state.list = state.list.filter(function(t){ return !delSet[String(t.id)]; });
+    save(); renderAll();
+    toast("已删除 " + (before - state.list.length) + " 条");
+    selectedIds = [];
+    renderTxns();
+    updateManageBar();
+  }
+
+  // ===== 快速清除 =====
+  function openClear(){
+    document.getElementById("clearTotal").textContent = state.list.length;
+
+    // 分类 chips
+    var catCount = {};
+    state.list.forEach(function(t){
+      if(t.type === "expense") catCount[t.cat] = (catCount[t.cat]||0)+1;
+    });
+    var chips = "";
+    EXP_CATS.forEach(function(c){
+      var n = catCount[c.id] || 0;
+      if(n === 0) return;
+      chips += '<span class="cat-chip" data-clearcat="'+c.id+'">'+c.icon+' '+c.name+' ('+n+')</span>';
+    });
+    document.getElementById("clearCatChips").innerHTML = chips || '<span style="font-size:13px;color:var(--sub);">暂无支出记录</span>';
+
+    // 月份下拉
+    var months = {};
+    state.list.forEach(function(t){ months[monthKey(t.date)] = (months[monthKey(t.date)]||0)+1; });
+    var mHtml = '<option value="">— 选择月份 —</option>';
+    Object.keys(months).sort().reverse().forEach(function(mk){
+      mHtml += '<option value="'+mk+'">'+assetMonthLabel(mk)+' （'+months[mk]+' 条）</option>';
+    });
+    document.getElementById("clearMonth").innerHTML = mHtml;
+
+    // 来源下拉
+    var srcs = {};
+    state.list.forEach(function(t){ var s = t.source || "手动"; srcs[s] = (srcs[s]||0)+1; });
+    var sHtml = '<option value="">— 选择来源 —</option>';
+    Object.keys(srcs).forEach(function(s){
+      sHtml += '<option value="'+s+'">'+s+' （'+srcs[s]+' 条）</option>';
+    });
+    document.getElementById("clearSource").innerHTML = sHtml;
+
+    document.getElementById("clearMask").classList.add("show");
+  }
+
+  function doClear(predicate, desc){
+    var before = state.list.length;
+    var hit = state.list.filter(predicate).length;
+    if(hit === 0){ toast("没有符合条件的记录"); return; }
+    if(!confirm("将删除 " + hit + " 条记录（" + desc + "），确定吗？此操作不可撤销。")) return;
+    state.list = state.list.filter(function(t){ return !predicate(t); });
+    save(); renderAll();
+    document.getElementById("clearMask").classList.remove("show");
+    toast("已删除 " + (before - state.list.length) + " 条");
+  }
+
+  // ===== 编辑/调整分类 =====
+  var editingId = null;
+  var editType = "expense";
+  var editCat = "other";
+  var filterCat = null;   // 当前流水列表的分类筛选
+
+  function findTxn(id){
+    return state.list.find(function(t){ return String(t.id) === String(id); });
+  }
+
+  function openEdit(id){
+    var t = findTxn(id);
+    if(!t) return;
+    editingId = t.id;
+    editType = t.type;
+    editCat = t.cat;
+    document.getElementById("editSummary").innerHTML =
+      '<div style="font-size:15px;font-weight:600;">'+(t.note || catById(t.cat).name)+'</div>' +
+      '<div style="font-size:13px;color:var(--sub);margin-top:3px;">'+
+        (t.type==="income"?"收入":"支出")+' '+fmtMoney(t.amount)+' · '+t.date+
+        (t.source && t.source!=="manual" ? ' · 来自'+t.source : '')+
+      '</div>';
+    document.getElementById("editNote").value = t.note || "";
+    renderEditCats();
+    document.getElementById("editMask").classList.add("show");
+  }
+
+  function renderEditCats(){
+    document.querySelectorAll("#editTypeSeg button").forEach(function(b){
+      b.classList.toggle("on", b.dataset.etype === editType);
+    });
+    var cats = editType === "expense" ? EXP_CATS : INC_CATS;
+    // 若当前分类不在该类型的列表里，切到第一个
+    if(!cats.some(function(c){return c.id===editCat;})) editCat = cats[0].id;
+    document.getElementById("editCats").innerHTML = cats.map(function(c){
+      return '<span class="cat-chip'+(c.id===editCat?" on":"")+'" data-ecat="'+c.id+'">'+c.icon+' '+c.name+'</span>';
+    }).join("");
+  }
+
+  function saveEdit(){
+    var t = findTxn(editingId);
+    if(!t){ return; }
+    t.type = editType;
+    t.cat = editCat;
+    t.note = document.getElementById("editNote").value.trim();
+    save(); renderAll();
+    document.getElementById("editMask").classList.remove("show");
+    toast("分类已更新 ✓");
+    editingId = null;
   }
 
   function renderAll(){ renderSummary(); renderCats(); renderTxns(); renderAssets(); }
@@ -610,16 +924,17 @@
   // 检测微信/支付宝官方账单格式，返回列映射或 null
   function detectOfficialFormat(header){
     var h = header.map(function(x){ return String(x||"").replace(/^\uFEFF/,"").trim(); });
-    // 微信支付账单明细：交易时间,交易类型,交易对方,商品,收/支,金额(元),支付方式,当前状态,交易单号,商户单号,备注
+    // 微信支付账单明细：交易时间,交易类型,交易对方,商品,收/支,金额(元),支付方式,当前状态,...
     if(h.indexOf("交易时间")>=0 && h.indexOf("交易类型")>=0 && h.indexOf("金额(元)")>=0){
       return {
         name: "微信支付",
         date: h.indexOf("交易时间"),
         type: h.indexOf("收/支")>=0 ? h.indexOf("收/支") : -1,
         amount: h.indexOf("金额(元)"),
-        note: h.indexOf("交易对方")>=0 ? h.indexOf("交易对方") : -1,
-        goods: h.indexOf("商品")>=0 ? h.indexOf("商品") : -1,
-        // 交易类型可辅助判断收入（如"零钱提现""转账""红包"）
+        note: h.indexOf("交易对方")>=0 ? h.indexOf("交易对方") : -1,   // 交易对方
+        goods: h.indexOf("商品")>=0 ? h.indexOf("商品") : -1,          // 商品描述
+        counterparty: -1,                                             // 微信无独立对方列
+        category: -1,                                                 // 微信无交易分类列
         typeName: h.indexOf("交易类型")
       };
     }
@@ -655,7 +970,10 @@
         type: h.indexOf("收/支"),
         amount: h.indexOf("金额(元)"),
         note: h.indexOf("交易对方"),
-        goods: h.indexOf("商品")>=0 ? h.indexOf("商品") : -1
+        goods: h.indexOf("商品")>=0 ? h.indexOf("商品") : -1,
+        counterparty: -1,
+        category: -1,
+        typeName: h.indexOf("交易类型")>=0 ? h.indexOf("交易类型") : -1
       };
     }
     return null;
@@ -685,8 +1003,8 @@
     var s = String(text||"").toLowerCase();
     // 规则按优先级排列，越具体越靠前
     var rules = [
-      // 交通出行
-      [/滴滴|顺风车|快车打车|特惠快车|打车|网约车|出租车|t3出行|曹操|花小猪|哈啰|青桔|共享单车|骑行|地铁|公交|高铁|火车|机票|航空|机场|加油|充电桩|单次充电|充电|etc|停车|高速/, "traffic"],
+      // 交通出行（含共享充电宝）
+      [/滴滴|顺风车|快车打车|特惠快车|打车|网约车|出租车|t3出行|曹操|花小猪|哈啰|青桔|共享单车|骑行|地铁|公交|高铁|火车|机票|航空|机场|加油|充电桩|单次充电|充电|充电宝|怪兽|街电|来电|小电|海博|奥为物联|etc|停车|高速/, "traffic"],
       // 医疗健康
       [/医院|诊所|药店|药房|体检|挂号|口腔|牙科|眼科|中医|门诊|买药|健康|保健|按摩|spa|足疗|理疗/, "medical"],
       // 旅行住宿
@@ -803,17 +1121,23 @@
 
       // 备注：交易对方 + 商品说明
       var counterparty = "";
-      if(o.counterparty>=0) counterparty = String(r[o.counterparty]||"").trim();
-      var goods = o.note>=0 ? String(r[o.note]||"").trim() : "";
-      // 支付宝商品说明就是 note；微信用 note=交易对方, goods=商品
+      var goods = "";
+      if(o.name === "支付宝"){
+        // 支付宝：note 可能是"商品说明"，counterparty 是"交易对方"
+        if(o.counterparty>=0) counterparty = String(r[o.counterparty]||"").trim();
+        goods = o.note>=0 ? String(r[o.note]||"").trim() : "";
+      } else {
+        // 微信：note = 交易对方，goods = 商品
+        counterparty = o.note>=0 ? String(r[o.note]||"").trim() : "";
+        goods = o.goods>=0 ? String(r[o.goods]||"").trim() : "";
+      }
       var note = "";
       if(o.name === "支付宝"){
-        note = goods;  // 商品说明
-        if(counterparty && counterparty!=="/" && !/^[^\u4e00-\u9fa5]*$/.test(counterparty) && counterparty!==goods){
+        note = goods;
+        if(counterparty && counterparty!=="/" && counterparty!==goods){
           note = counterparty + " · " + goods;
         }
       } else {
-        // 微信：note=交易对方 + 商品
         note = counterparty;
         if(goods && goods!=="/" && goods!==counterparty && !/^转账备注:微信转账$/.test(goods) && !/^收款方备注:/.test(goods)){
           note = counterparty ? (counterparty + " · " + goods) : goods;
@@ -999,12 +1323,101 @@
   document.getElementById("btnSave").addEventListener("click", saveTxn);
 
   document.getElementById("txnList").addEventListener("click", function(e){
+    // 点删除按钮 → 删除（非管理模式）
     var d = e.target.closest("[data-del]");
-    if(d){
+    if(d && !manageMode){
+      e.stopPropagation();
       if(confirm("删除这条记录？")){
         state.list = state.list.filter(function(t){ return String(t.id)!==d.dataset.del; });
         save(); renderAll(); toast("已删除");
       }
+      return;
+    }
+    var item = e.target.closest("[data-edit]");
+    if(!item) return;
+    // 管理模式：切换勾选
+    if(manageMode){ toggleSelect(item.dataset.edit); return; }
+    // 普通模式：打开分类编辑
+    openEdit(item.dataset.edit);
+  });
+
+  // 加载更多
+  document.getElementById("txnList").addEventListener("click", function(e){
+    if(e.target.closest("#btnLoadMore")){
+      txnLimit += 100;
+      renderTxns();
+    }
+  });
+
+  // ===== 批量管理事件 =====
+  document.getElementById("btnManage").addEventListener("click", function(){
+    if(manageMode) exitManage(); else enterManage();
+  });
+  document.getElementById("btnExitManage").addEventListener("click", exitManage);
+  document.getElementById("btnSelAll").addEventListener("click", selectAllVisible);
+  document.getElementById("btnDelSel").addEventListener("click", deleteSelected);
+
+  // ===== 快速清除事件 =====
+  document.getElementById("btnQuickClear").addEventListener("click", openClear);
+  document.getElementById("clearCatChips").addEventListener("click", function(e){
+    var s = e.target.closest("[data-clearcat]");
+    if(!s) return;
+    var cid = s.dataset.clearcat;
+    doClear(function(t){ return t.type==="expense" && t.cat===cid; },
+      catById(cid).name + " 类支出");
+  });
+  document.getElementById("clearMonth").addEventListener("change", function(){
+    var mk = this.value;
+    if(!mk) return;
+    this.value = "";
+    doClear(function(t){ return monthKey(t.date)===mk; }, assetMonthLabel(mk));
+  });
+  document.getElementById("clearSource").addEventListener("change", function(){
+    var src = this.value;
+    if(!src) return;
+    this.value = "";
+    doClear(function(t){ return (t.source||"手动")===src; }, "来源：" + src);
+  });
+  document.getElementById("qtAllOther").addEventListener("click", function(){
+    doClear(function(t){ return t.cat==="other"; }, "全部「其他」类");
+  });
+  document.getElementById("qtAll").addEventListener("click", function(){
+    if(state.list.length===0){ toast("没有可清除的记录"); return; }
+    if(!confirm("确定清空全部 " + state.list.length + " 条流水？此操作不可撤销！\n\n建议先点右上角「导出数据」备份。")) return;
+    state.list = [];
+    save(); renderAll();
+    document.getElementById("clearMask").classList.remove("show");
+    toast("已清空全部流水");
+  });
+
+  // 编辑弹窗事件
+  document.getElementById("editTypeSeg").addEventListener("click", function(e){
+    var b = e.target.closest("button[data-etype]");
+    if(b){ editType = b.dataset.etype; renderEditCats(); }
+  });
+  document.getElementById("editCats").addEventListener("click", function(e){
+    var s = e.target.closest("[data-ecat]");
+    if(s){ editCat = s.dataset.ecat; renderEditCats(); }
+  });
+  document.getElementById("btnSaveEdit").addEventListener("click", saveEdit);
+
+  // 点分类统计行 → 筛选该类流水
+  document.getElementById("catList").addEventListener("click", function(e){
+    var r = e.target.closest("[data-filtercat]");
+    if(!r) return;
+    var c = r.dataset.filtercat;
+    filterCat = (filterCat === c) ? null : c;   // 再点一次取消
+    txnLimit = 100;                             // 切换筛选时重置显示数量
+    renderCats(); renderTxns();
+    if(filterCat){
+      document.getElementById("txnList").scrollIntoView({behavior:"smooth", block:"start"});
+    }
+  });
+
+  // 清除筛选
+  document.getElementById("filterBanner").addEventListener("click", function(e){
+    if(e.target.closest("#btnClearFilter")){
+      filterCat = null; renderCats(); renderTxns();
     }
   });
 
